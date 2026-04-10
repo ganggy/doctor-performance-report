@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hospital Program Portal</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape shape-a"></div>
+    <div class="bg-shape shape-b"></div>
+
+    <main class="container">
+      <section id="loginView" class="card glass login-card">
+        <h1>Hospital Program Portal</h1>
+        <p class="subtitle">เข้าสู่ระบบด้วยเลขบัตรประชาชน</p>
+        <form id="loginForm" autocomplete="off">
+          <label for="cid">เลขบัตรประชาชน 13 หลัก</label>
+          <input id="cid" name="cid" type="text" maxlength="13" inputmode="numeric" required />
+          <button type="submit">เข้าสู่ระบบ</button>
+        </form>
+        <p id="loginMessage" class="message"></p>
+      </section>
+
+      <section id="appView" class="hidden">
+        <header class="topbar glass">
+          <div>
+            <h2 id="welcomeText"></h2>
+            <p id="roleText" class="subtitle"></p>
+          </div>
+          <div class="actions">
+            <button id="addMenuBtn" class="secondary hidden">+ เพิ่มเมนู</button>
+            <button id="logoutBtn" class="danger">ออกจากระบบ</button>
+          </div>
+        </header>
+
+        <section>
+          <h3 class="section-title">ระบบงานในโรงพยาบาล</h3>
+          <div id="menuGrid" class="grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="menuModal" class="menu-modal">
+      <form id="menuForm" method="dialog">
+        <h3 id="modalTitle">เพิ่มเมนู</h3>
+        <input type="hidden" id="menuId" />
+        <label>ชื่อเมนู</label>
+        <input id="menuTitle" required />
+        <label>ลิงก์โปรแกรม</label>
+        <input id="menuUrl" placeholder="192.168.2.202:3507" required />
+        <label>คำอธิบาย</label>
+        <textarea id="menuDescription" rows="3"></textarea>
+        <label>ไอคอน (ข้อความสั้น)</label>
+        <input id="menuIcon" maxlength="6" placeholder="FDH" />
+        <label>สีการ์ด</label>
+        <input id="menuColor" type="color" value="#0a9396" />
+        <div class="modal-actions">
+          <button type="button" id="cancelModal" class="secondary">ยกเลิก</button>
+          <button type="submit">บันทึก</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/script.js"></script>
+  </body>
+</html>
