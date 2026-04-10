@@ -1,0 +1,651 @@
+/* ============================================
+   Doctor Performance Report - Main Styles
+   ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --primary: #1e40af;
+    --primary-dark: #1e3a8a;
+    --primary-light: #3b82f6;
+    --accent: #f59e0b;
+    --accent2: #10b981;
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --sidebar-bg: #1e293b;
+    --sidebar-text: #cbd5e1;
+    --sidebar-active: #3b82f6;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --radius: 12px;
+    --table-header: #1e3a8a;
+    --table-doctor: #1d4ed8;
+    --table-row1: #ffffff;
+    --table-row2: #f8fafc;
+    --table-total: #fef3c7;
+    --table-grand: #fbbf24;
+    --table-sum: #f59e0b;
+}
+
+body {
+    font-family: 'Sarabun', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    min-height: 100vh;
+}
+
+/* Layout */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 18px;
+    background: linear-gradient(135deg, #1e3a8a, #1e40af);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo-icon {
+    font-size: 32px;
+}
+
+.logo-title {
+    display: block;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    line-height: 1.3;
+}
+
+.logo-sub {
+    display: block;
+    font-size: 11px;
+    color: #93c5fd;
+    margin-top: 2px;
+}
+
+.sidebar-section {
+    padding: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 12px;
+}
+
+.hint {
+    font-size: 10px;
+    color: #475569;
+    font-weight: 400;
+    text-transform: none;
+}
+
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    border-color: var(--primary-light);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-print {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+    margin-top: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.btn-secondary:hover {
+    background: rgba(16, 185, 129, 0.25);
+}
+
+.btn-print {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.btn-print:hover {
+    background: rgba(245, 158, 11, 0.25);
+}
+
+/* Doctor List */
+.doctor-list {
+    min-height: 80px;
+    margin-bottom: 8px;
+}
+
+.loading-text {
+    color: #64748b;
+    font-size: 13px;
+    padding: 8px 0;
+}
+
+.doctor-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.2s;
+}
+
+.doctor-item:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.doctor-item.sortable-ghost {
+    opacity: 0.4;
+}
+
+.doctor-item.sortable-chosen {
+    background: rgba(59, 130, 246, 0.3);
+}
+
+.drag-handle {
+    color: #475569;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.doctor-num {
+    width: 20px;
+    height: 20px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.doctor-name-small {
+    font-size: 12px;
+    color: #e2e8f0;
+    line-height: 1.3;
+}
+
+.sidebar-actions {
+    padding: 18px;
+    margin-top: auto;
+}
+
+/* ===== MAIN CONTENT ===== */
+.main-content {
+    margin-left: 280px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.topbar {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+    color: #fff;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(30, 58, 138, 0.3);
+}
+
+.topbar h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.topbar p {
+    font-size: 14px;
+    color: #bfdbfe;
+}
+
+.topbar-meta {
+    text-align: right;
+    font-size: 13px;
+    color: #bfdbfe;
+}
+
+.status-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 30px;
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.report-container {
+    flex: 1;
+    padding: 24px 30px;
+    overflow-x: auto;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: var(--text-muted);
+    gap: 12px;
+}
+
+.empty-icon {
+    font-size: 60px;
+}
+
+/* ===== REPORT TABLE ===== */
+.report-wrapper {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.report-title-row {
+    background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+    color: #fff;
+    text-align: center;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.report-table th {
+    background: var(--table-header);
+    color: #fff;
+    padding: 9px 10px;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    white-space: nowrap;
+}
+
+.report-table th.col-label {
+    min-width: 160px;
+    text-align: left;
+}
+
+.report-table td {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    text-align: right;
+}
+
+.report-table td.label-cell {
+    text-align: left;
+    font-weight: 500;
+    background: #f8fafc;
+}
+
+/* Doctor header row */
+.row-doctor-header td {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    font-size: 14px;
+    padding: 11px 12px;
+    border-color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Admit row */
+.row-admit td {
+    background: #ffffff;
+    transition: background 0.15s;
+}
+
+.row-admit:hover td {
+    background: #f0f7ff;
+}
+
+.row-admit td.label-cell {
+    color: #1e40af;
+    font-weight: 600;
+    background: #f0f7ff;
+}
+
+/* AdjRW row */
+.row-adjrw td {
+    background: #f0f9ff;
+    transition: background 0.15s;
+}
+
+.row-adjrw:hover td {
+    background: #e0f2fe;
+}
+
+.row-adjrw td.label-cell {
+    color: #0369a1;
+    font-weight: 600;
+    background: #e0f2fe;
+}
+
+.total-adjrw-cell {
+    font-weight: 700;
+    color: #0369a1;
+    background: #dbeafe !important;
+}
+
+/* Spacer row */
+.row-spacer td {
+    background: linear-gradient(90deg, #e0e7ff, #dbeafe, #e0e7ff);
+    height: 6px;
+    padding: 0;
+    border: none;
+}
+
+/* Summary rows */
+.row-total-admitx td {
+    background: #1e293b;
+    font-weight: 700;
+    color: #f1f5f9;
+    border-color: #334155;
+}
+
+.row-total-admitx td.grand-label {
+    color: #93c5fd;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+}
+
+.admit-summary-cell {
+    font-size: 13px;
+}
+
+.admit-summary-cell.grand-total {
+    background: #0f172a !important;
+    color: #60a5fa !important;
+    font-size: 14px;
+}
+
+/* รวม Adj RW row */
+.row-total-adjrw td {
+    font-weight: 800;
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+.row-total-adjrw td.grand-label {
+    background: #1e293b;
+    color: #fbbf24;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+}
+
+/* Color cells: Adj RW >= 250 = green, < 250 = red */
+.adjrw-summary-cell {
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+    position: relative;
+    transition: filter 0.2s;
+}
+
+.adjrw-summary-cell:hover {
+    filter: brightness(1.1);
+}
+
+.adjrw-green {
+    background: linear-gradient(135deg, #15803d, #16a34a) !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    border-color: #14532d !important;
+}
+
+.adjrw-red {
+    background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    border-color: #7f1d1d !important;
+}
+
+.adjrw-empty {
+    background: #475569 !important;
+    color: #94a3b8 !important;
+}
+
+/* Grand total column - neutral dark blue */
+.adjrw-neutral {
+    background: linear-gradient(135deg, #1e3a8a, #1e40af) !important;
+    color: #bfdbfe !important;
+    font-size: 14px !important;
+    border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.adjrw-summary-cell.grand-total {
+    font-size: 14px;
+    border-left: 3px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* SumAdjRW footer bar - bright amber/gold (clearly NOT red) */
+.row-sum-adjrw td {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24, #fcd34d);
+    font-weight: 800;
+    color: #78350f;
+    text-align: center;
+    font-size: 14px;
+    padding: 12px;
+    letter-spacing: 0.08em;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+    border: none;
+}
+
+/* Number formatting */
+.num-cell {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+}
+
+.num-zero {
+    color: #cbd5e1;
+}
+
+/* ===== WARD REPORT TABLE ===== */
+.ward-report-container {
+    padding: 0 30px 30px 30px;
+}
+
+.ward-report-wrapper {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.ward-report-title {
+    background: #ffffff;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    border-bottom: 2px solid #10b981;
+}
+
+.ward-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.ward-report-table th {
+    background: #10b981; /* Green header from user image */
+    color: #ffffff;
+    padding: 8px 10px;
+    text-align: center;
+    font-weight: 500;
+    border: 1px solid #065f46;
+}
+
+.ward-report-table td {
+    padding: 6px 10px;
+    border: 1px solid #000000;
+    color: #000000;
+}
+
+.ward-report-table td.ward-name-cell {
+    text-align: left;
+}
+
+.ward-report-table td.ward-num-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ward-report-table tr.ward-total-row {
+    background: #84cc16; /* Light green total row */
+    font-weight: 700;
+}
+
+.ward-report-table tr.ward-total-row td {
+    border: 1px solid #000000;
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+
+    .sidebar,
+    .topbar,
+    .status-bar {
+        display: none !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+    }
+
+    .report-container {
+        padding: 0 !important;
+    }
+
+    body {
+        background: white;
+        font-size: 11px;
+    }
+
+    .report-table {
+        font-size: 10px;
+    }
+
+    .report-table th,
+    .report-table td {
+        padding: 4px 6px;
+    }
+
+    .report-wrapper {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+
+    @page {
+        margin: 15mm;
+        size: A4 landscape;
+    }
+}

@@ -1,221 +1,251 @@
-require("dotenv").config();
-
-const express = require("express");
-const session = require("express-session");
-const mysql = require("mysql2/promise");
-const fs = require("fs");
-const path = require("path");
+const express = require('express');
+const mysql = require('mysql2/promise');
+const cors = require('cors');
+const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3100;
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-const DB_CONFIG = {
-  host: process.env.DB_HOST || "192.168.2.254",
-  user: process.env.DB_USER || "opd",
-  password: process.env.DB_PASSWORD || "opd",
-  database: process.env.DB_NAME || "hos",
-  waitForConnections: true,
-  connectionLimit: 10
+// HOSxP Database config
+const dbConfig = {
+    host: '192.168.2.254',
+    user: 'opd',
+    password: 'opd',
+    database: 'hos',
+    port: 3306,
+    charset: 'utf8',
+    connectTimeout: 10000
 };
 
-const ADMIN_CID = process.env.ADMIN_CID || "1480700068494";
-const ADMIN_GROUP = process.env.ADMIN_GROUP || "ผู้ดูแลระบบ";
-const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-secret";
+let pool;
 
-const DATA_DIR = path.join(__dirname, "data");
-const MENU_FILE = path.join(DATA_DIR, "menus.json");
-
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-if (!fs.existsSync(MENU_FILE)) {
-  const initialMenus = [
-    {
-      id: "fdh-checker",
-      title: "FDH Checker",
-      description: "ระบบตรวจสอบข้อมูล FDH",
-      url: "http://192.168.2.202:3507",
-      color: "#005f73",
-      icon: "FDH"
+async function initDB() {
+    try {
+        pool = mysql.createPool({ ...dbConfig, waitForConnections: true, connectionLimit: 5 });
+        const conn = await pool.getConnection();
+        console.log('✅ เชื่อมต่อฐานข้อมูล HOSxP สำเร็จ');
+        conn.release();
+    } catch (err) {
+        console.error('❌ เชื่อมต่อฐานข้อมูลไม่ได้:', err.message);
     }
-  ];
-  fs.writeFileSync(MENU_FILE, JSON.stringify(initialMenus, null, 2), "utf8");
 }
 
-const dbPool = mysql.createPool(DB_CONFIG);
+// รายชื่อแพทย์เป้าหมาย 5 คน (hardcoded)
+const TARGET_DOCTOR_CODES = ['1036', '2548', '2558', '2620', '2625'];
+// ลำดับตาม Excel: ณัฐปภัสร์, ภาษิต, ชานนท์, นฤนาท, พรพจน์
+const TARGET_DOCTOR_ORDER = ['1036', '2548', '2558', '2620', '2625'];
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(
-  session({
-    secret: SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      maxAge: 8 * 60 * 60 * 1000
+// ดึงรายชื่อแพทย์เป้าหมาย
+app.get('/api/doctors', async (req, res) => {
+    try {
+        const placeholders = TARGET_DOCTOR_CODES.map(() => '?').join(',');
+        const [rows] = await pool.query(`
+      SELECT code, name AS doctor_name
+      FROM doctor
+      WHERE code IN (${placeholders})
+      ORDER BY FIELD(code, ${placeholders})
+    `, [...TARGET_DOCTOR_CODES, ...TARGET_DOCTOR_CODES]);
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('doctors error:', err.message);
+        res.json({ success: false, error: err.message, data: [] });
     }
-  })
-);
-app.use(express.static(path.join(__dirname, "public")));
+});
 
-function readMenus() {
-  try {
-    const text = fs.readFileSync(MENU_FILE, "utf8");
-    const data = JSON.parse(text);
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    return [];
-  }
-}
+// ดึงข้อมูลรายงาน (เฉพาะ 5 แพทย์เป้าหมาย)
+app.get('/api/report', async (req, res) => {
+    try {
+        const { start, end } = req.query;
+        const startDate = start ? `${start}-01` : null;
+        const endDate = end ? `${end}-31` : null;
 
-function writeMenus(menus) {
-  fs.writeFileSync(MENU_FILE, JSON.stringify(menus, null, 2), "utf8");
-}
+        const placeholders = TARGET_DOCTOR_CODES.map(() => '?').join(',');
+        let whereClause = `WHERE i.dchdate IS NOT NULL AND i.admdoctor IN (${placeholders})`;
+        const params = [...TARGET_DOCTOR_CODES];
+        if (startDate && endDate) {
+            whereClause += " AND i.dchdate >= ? AND i.dchdate <= ?";
+            params.push(startDate, endDate);
+        }
 
-function normalizeText(value) {
-  return String(value || "").trim().toLowerCase();
-}
+        const [rows] = await pool.query(`
+      SELECT 
+        d.code AS doctor_code,
+        d.name AS doctor_name,
+        YEAR(i.dchdate) AS yr,
+        MONTH(i.dchdate) AS mo,
+        COUNT(i.an) AS admit_count,
+        ROUND(SUM(COALESCE(i.adjrw, 0)), 3) AS total_adjrw
+      FROM ipt i
+      JOIN doctor d ON i.admdoctor = d.code
+      ${whereClause}
+      GROUP BY d.code, d.name, YEAR(i.dchdate), MONTH(i.dchdate)
+      ORDER BY FIELD(d.code, ${placeholders}), yr, mo
+    `, [...params, ...TARGET_DOCTOR_CODES]);
 
-function isAdminUser(user) {
-  const cid = String(user.cid || "").trim();
-  const groupValue =
-    user.droupname || user.groupname || user.usergroup || user.user_group || "";
-  return cid === ADMIN_CID || normalizeText(groupValue) === normalizeText(ADMIN_GROUP);
-}
-
-function ensureAuth(req, res, next) {
-  if (!req.session.user) {
-    return res.status(401).json({ ok: false, message: "กรุณาเข้าสู่ระบบ" });
-  }
-  next();
-}
-
-function ensureAdmin(req, res, next) {
-  if (!req.session.user?.isAdmin) {
-    return res.status(403).json({ ok: false, message: "สิทธิ์ไม่เพียงพอ" });
-  }
-  next();
-}
-
-function withProtocol(url) {
-  const raw = String(url || "").trim();
-  if (!raw) return "";
-  if (/^https?:\/\//i.test(raw)) return raw;
-  return `http://${raw}`;
-}
-
-app.post("/api/login", async (req, res) => {
-  const cid = String(req.body.cid || "").trim();
-  if (!/^\d{13}$/.test(cid)) {
-    return res.status(400).json({ ok: false, message: "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก" });
-  }
-
-  try {
-    const [rows] = await dbPool.query("SELECT * FROM opduser WHERE cid = ? LIMIT 1", [cid]);
-    if (!rows.length) {
-      return res.status(401).json({ ok: false, message: "ไม่อนุญาตให้เข้าสู่ระบบ" });
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('report error:', err.message);
+        res.json({ success: false, error: err.message, data: [] });
     }
+});
 
-    const row = rows[0];
-    const displayName =
-      row.name || row.fullname || row.fname || row.username || row.loginname || row.cid;
+// ดึงข้อมูลรายงานตามตึก (รายเดือน)
+app.get('/api/ward-report', async (req, res) => {
+    try {
+        const { start, end } = req.query;
+        const startDate = start ? `${start}-01` : null;
+        const endDate = end ? `${end}-31` : null;
 
-    const user = {
-      cid: row.cid,
-      name: displayName,
-      droupname: row.droupname || row.groupname || "",
-      isAdmin: isAdminUser(row)
-    };
+        let whereClause = `WHERE a.dchdate IS NOT NULL AND a.ward IS NOT NULL`;
+        const params = [];
+        if (startDate && endDate) {
+            whereClause += " AND a.dchdate >= ? AND a.dchdate <= ?";
+            params.push(startDate, endDate);
+        }
 
-    req.session.user = user;
-    return res.json({
-      ok: true,
-      message: "สวัสดีผู้ใช้ เข้าสู่ระบบสำเร็จ",
-      user
+        const [rows] = await pool.query(`
+      SELECT 
+        w.ward AS ward_code,
+        w.name AS ward_name,
+        YEAR(a.dchdate) AS yr,
+        MONTH(a.dchdate) AS mo,
+        COUNT(DISTINCT a.hn) AS person_count,
+        COUNT(a.an) AS admit_count,
+        SUM(a.los) AS total_los,
+        SUM(a.income) AS total_income,
+        SUM(COALESCE(i.adjrw, 0)) AS total_adjrw
+      FROM an_stat a
+      JOIN ipt i ON a.an = i.an
+      JOIN ward w ON a.ward = w.ward
+      ${whereClause}
+      GROUP BY w.ward, w.name, YEAR(a.dchdate), MONTH(a.dchdate)
+      ORDER BY YEAR(a.dchdate), MONTH(a.dchdate), w.name
+    `, params);
+
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('ward-report error:', err.message);
+        res.json({ success: false, error: err.message, data: [] });
+    }
+});
+
+// ค้นหาแพทย์เป้าหมายและตรวจสอบว่าใช้ field ไหนใน ipt
+app.get('/api/find-doctors', async (req, res) => {
+    try {
+        // ค้นหาแพทย์ทั้งหมด council_code = '01' ที่ active = Y
+        const [allPhysicians] = await pool.query(`
+      SELECT code, name, fname, lname, pname, council_code, active
+      FROM doctor
+      WHERE council_code = '01'
+      ORDER BY name
+    `);
+
+        // กรองตามคีย์เวิร์ดของ 5 แพทย์ (ตรวจจาก fname หรือ name)
+        const keywords = ['ณัฐ', 'ภาษิต', 'ชานนท์', 'นฤนาท', 'พรพจน์', 'ณัฐปภัสร', 'นวัตชัย'];
+        const matched = allPhysicians.filter(d =>
+            keywords.some(k => (d.name || '').includes(k) || (d.fname || '').includes(k))
+        );
+
+        // ตรวจสอบ ipt counts สำหรับแต่ละคนที่เจอ
+        const checks = await Promise.all(matched.map(async d => {
+            const [[a]] = await pool.query('SELECT COUNT(*) as n FROM ipt WHERE admdoctor = ?', [d.code]);
+            const [[b]] = await pool.query('SELECT COUNT(*) as n FROM ipt WHERE dch_doctor = ?', [d.code]);
+            return {
+                code: d.code, name: d.name, fname: d.fname, lname: d.lname,
+                active: d.active,
+                admdoctor_count: a.n, dch_doctor_count: b.n
+            };
+        }));
+
+        // ส่งทั้ง matched และ top 20 ของ physician ทั้งหมด (สำหรับ debug)
+        res.json({
+            success: true,
+            matched_doctors: checks,
+            all_physicians_count: allPhysicians.length,
+            all_physicians_sample: allPhysicians.slice(0, 30).map(d => ({
+                code: d.code, name: d.name, active: d.active
+            }))
+        });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// ตรวจสอบ schema ตาราง doctor
+app.get('/api/schema', async (req, res) => {
+
+    try {
+        const [rows] = await pool.query('DESCRIBE doctor');
+        res.json({ success: true, columns: rows.map(r => r.Field) });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// ดึง top doctors ใน ipt ไม่จำกัด council_code
+app.get('/api/top-ipt-doctors', async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+      SELECT d.code, d.name, d.council_code, d.active,
+             COUNT(i.an) as admit_count
+      FROM ipt i
+      JOIN doctor d ON i.admdoctor = d.code
+      WHERE i.dchdate >= '2023-10-01'
+      GROUP BY d.code, d.name, d.council_code, d.active
+      ORDER BY admit_count DESC
+      LIMIT 30
+    `);
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+
+app.get('/api/schema-ipt', async (req, res) => {
+    try {
+        const [rows] = await pool.query('DESCRIBE ipt');
+        res.json({ success: true, columns: rows.map(r => r.Field) });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// ดึงตัวอย่างข้อมูล ipt
+app.get('/api/ipt-sample', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM ipt LIMIT 2');
+        res.json({ success: true, columns: Object.keys(rows[0] || {}), data: rows });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// ดึงตัวอย่างข้อมูล doctor
+app.get('/api/doctor-sample', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM doctor LIMIT 3');
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// ทดสอบการเชื่อมต่อ
+app.get('/api/test', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT COUNT(*) as total FROM ipt LIMIT 1');
+        res.json({ success: true, message: 'เชื่อมต่อสำเร็จ', total_ipt: rows[0].total });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+const PORT = process.env.PORT || 3502;
+initDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`🏥 Doctor Performance Report running at port ${PORT}`);
     });
-  } catch (error) {
-    return res.status(500).json({
-      ok: false,
-      message: "เชื่อมต่อฐานข้อมูลไม่สำเร็จ",
-      detail: error.message
-    });
-  }
-});
-
-app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.json({ ok: true });
-  });
-});
-
-app.get("/api/me", (req, res) => {
-  if (!req.session.user) return res.json({ ok: true, user: null });
-  return res.json({ ok: true, user: req.session.user });
-});
-
-app.get("/api/menus", ensureAuth, (req, res) => {
-  return res.json({ ok: true, menus: readMenus() });
-});
-
-app.post("/api/menus", ensureAuth, ensureAdmin, (req, res) => {
-  const title = String(req.body.title || "").trim();
-  const url = withProtocol(req.body.url);
-  const description = String(req.body.description || "").trim();
-  const icon = String(req.body.icon || "").trim() || "APP";
-  const color = String(req.body.color || "").trim() || "#0a9396";
-
-  if (!title || !url) {
-    return res.status(400).json({ ok: false, message: "กรุณากรอกชื่อเมนูและลิงก์" });
-  }
-
-  const menus = readMenus();
-  const newMenu = {
-    id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    title,
-    url,
-    description,
-    icon,
-    color
-  };
-  menus.push(newMenu);
-  writeMenus(menus);
-  return res.json({ ok: true, menu: newMenu });
-});
-
-app.put("/api/menus/:id", ensureAuth, ensureAdmin, (req, res) => {
-  const id = String(req.params.id || "");
-  const menus = readMenus();
-  const index = menus.findIndex((m) => m.id === id);
-  if (index < 0) {
-    return res.status(404).json({ ok: false, message: "ไม่พบเมนูที่ต้องการแก้ไข" });
-  }
-
-  const title = String(req.body.title || "").trim();
-  const url = withProtocol(req.body.url);
-  const description = String(req.body.description || "").trim();
-  const icon = String(req.body.icon || "").trim() || "APP";
-  const color = String(req.body.color || "").trim() || "#0a9396";
-
-  if (!title || !url) {
-    return res.status(400).json({ ok: false, message: "กรุณากรอกชื่อเมนูและลิงก์" });
-  }
-
-  menus[index] = { ...menus[index], title, url, description, icon, color };
-  writeMenus(menus);
-  return res.json({ ok: true, menu: menus[index] });
-});
-
-app.delete("/api/menus/:id", ensureAuth, ensureAdmin, (req, res) => {
-  const id = String(req.params.id || "");
-  const menus = readMenus();
-  const next = menus.filter((m) => m.id !== id);
-  if (next.length === menus.length) {
-    return res.status(404).json({ ok: false, message: "ไม่พบเมนูที่ต้องการลบ" });
-  }
-  writeMenus(next);
-  return res.json({ ok: true });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
 });
