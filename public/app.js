@@ -66,16 +66,16 @@ function populateFiscalYears() {
 
 // ============ LOAD DOCTORS (initial - no filter) ============
 async function fetchDoctors() {
-    setStatus('⏳ กำลังโหลดรายชื่อแพทย์...');
+    setStatus('กำลังโหลดรายชื่อแพทย์...');
     try {
         const res = await fetch(`${API}/doctors`);
         const json = await res.json();
         if (!json.success) throw new Error(json.error);
         allDoctors = json.data;
         renderDoctorList(allDoctors);
-        setStatus('✅ โหลดรายชื่อแพทย์สำเร็จ กด "โหลดรายงาน" เพื่อแสดงข้อมูล');
+        setStatus('โหลดรายชื่อแพทย์สำเร็จ กด "โหลดรายงาน" เพื่อแสดงข้อมูล');
     } catch (err) {
-        setStatus(`❌ โหลดรายชื่อแพทย์ไม่ได้: ${err.message}`);
+        setStatus(`โหลดรายชื่อแพทย์ไม่ได้: ${err.message}`);
         renderDoctorList([]);
     }
 }
@@ -117,7 +117,7 @@ function applyOrder() {
     const items = document.querySelectorAll('#doctorList .doctor-item');
     doctorOrder = Array.from(items).map(el => el.dataset.code);
     if (Object.keys(reportData).length > 0) renderReport();
-    setStatus('✅ อัปเดตลำดับแพทย์แล้ว');
+    setStatus('อัปเดตลำดับแพทย์แล้ว');
 }
 
 // ============ LOAD REPORT ============
@@ -136,9 +136,9 @@ async function loadReport() {
 
     const btn = document.getElementById('loadBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span>⏳</span> กำลังโหลด...';
+    btn.innerHTML = '<span class="btn-icon" aria-hidden="true">↻</span> กำลังโหลด...';
 
-    setStatus('⏳ กำลังดึงข้อมูลจากฐานข้อมูล HOSxP...');
+    setStatus('กำลังดึงข้อมูลจากฐานข้อมูล HOSxP...');
 
     try {
         const [res, wardRes] = await Promise.all([
@@ -208,15 +208,16 @@ async function loadReport() {
         const doctorCount = activeDoctors.length;
         renderReport();
         renderWardReport(wardJson.data, months);
-        setStatus(`✅ โหลดสำเร็จ — ${fyLabel} | ${doctorCount} แพทย์ | ข้อมูลตึก ${wardJson.data.length} รายการ`);
+        updateMetrics(doctorsWithDataCount(), wardJson.data);
+        setStatus(`โหลดสำเร็จ - ${fyLabel} | ${doctorCount} แพทย์ | ข้อมูลตึก ${wardJson.data.length} รายการ`);
     } catch (err) {
-        setStatus(`❌ เกิดข้อผิดพลาด: ${err.message}`);
+        setStatus(`เกิดข้อผิดพลาด: ${err.message}`);
         document.getElementById('reportContainer').innerHTML =
-            `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${err.message}</p></div>`;
+            `<div class="empty-state"><div class="empty-icon" aria-hidden="true"></div><p>${err.message}</p></div>`;
     }
 
     btn.disabled = false;
-    btn.innerHTML = '<span>🔄</span> โหลดรายงาน';
+    btn.innerHTML = '<span class="btn-icon" aria-hidden="true">↻</span> โหลดรายงาน';
 }
 
 function generateMonthRange(start, end) {
@@ -256,7 +257,7 @@ function renderReport() {
         รายงานการสรุปเวชระเบียนผู้ป่วย ใน โรงพยาบาลโคกศรีสุพรรณ จังหวัดสกลนคร
         (ข้อมูล ณ วันที่ ${formatThaiDate(new Date())})
       </div>
-      <div style="overflow-x:auto">
+      <div class="table-scroll">
       <table class="report-table">
         <thead>
           <tr>
@@ -392,7 +393,7 @@ function renderWardReport(data, months) {
             <div class="ward-report-title">
                 รายงานสรุป IPD ตามตึก เดือน${monthName} ${yearThai}
             </div>
-            <div style="overflow-x:auto">
+            <div class="table-scroll">
                 <table class="ward-report-table">
                     <thead>
                         <tr>
@@ -462,6 +463,28 @@ function renderWardReport(data, months) {
 // ============ UTILS ============
 function setStatus(msg) {
     document.getElementById('statusText').textContent = msg;
+}
+
+function doctorsWithDataCount() {
+    return Object.keys(reportData).length;
+}
+
+function updateMetrics(doctorCount, wardRows = []) {
+    let admitTotal = 0;
+    let adjrwTotal = 0;
+    Object.values(reportData).forEach(monthMap => {
+        Object.values(monthMap).forEach(item => {
+            admitTotal += Number(item.admit || 0);
+            adjrwTotal += Number(item.adjrw || 0);
+        });
+    });
+
+    const wardCodes = new Set(wardRows.map(row => row.ward_code || row.ward_name).filter(Boolean));
+
+    document.getElementById('metricDoctors').textContent = doctorCount.toLocaleString();
+    document.getElementById('metricAdmit').textContent = admitTotal.toLocaleString();
+    document.getElementById('metricAdjrw').textContent = fmtAdjRW(adjrwTotal, 1) || '0.0';
+    document.getElementById('metricWards').textContent = wardCodes.size.toLocaleString();
 }
 
 // จัดรูปแบบตัวเลข AdjRW พร้อม comma

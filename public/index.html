@@ -12,27 +12,26 @@
 </head>
 
 <body>
-    <!-- App Shell -->
     <div class="app-layout">
-
-        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="logo-icon">🏥</div>
+                <div class="logo-icon" aria-hidden="true">
+                    <span></span>
+                </div>
                 <div class="logo-text">
-                    <span class="logo-title">รายงานผลงานแพทย์</span>
-                    <span class="logo-sub">HOSxP Report</span>
+                    <span class="logo-title">Doctor Performance</span>
+                    <span class="logo-sub">Khok Si Suphan Hospital</span>
                 </div>
             </div>
 
             <div class="sidebar-section">
-                <div class="section-label">ช่วงเวลา (ปีงบประมาณ)</div>
+                <div class="section-label">ช่วงรายงาน</div>
                 <div class="form-group">
                     <label>ปีงบประมาณ</label>
                     <select id="targetFY" class="form-control"></select>
                 </div>
                 <button class="btn-primary" id="loadBtn" onclick="loadReport()">
-                    <span>🔄</span> โหลดรายงาน
+                    <span class="btn-icon" aria-hidden="true">↻</span> โหลดรายงาน
                 </button>
             </div>
 
@@ -42,21 +41,22 @@
                     <div class="loading-text">กำลังโหลด...</div>
                 </div>
                 <button class="btn-secondary" onclick="applyOrder()">
-                    <span>✅</span> ใช้ลำดับนี้
+                    <span class="btn-icon" aria-hidden="true">✓</span> ใช้ลำดับนี้
                 </button>
             </div>
 
             <div class="sidebar-actions">
-                <button class="btn-print" onclick="printReport()">🖨️ พิมพ์รายงาน</button>
+                <button class="btn-print" onclick="printReport()">
+                    <span class="btn-icon" aria-hidden="true">⌘</span> พิมพ์รายงาน
+                </button>
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="main-content">
-            <!-- Top bar -->
             <div class="topbar">
                 <div class="topbar-title">
-                    <h1>รายงานการสรุปเวชระเบียนผู้ป่วย ใน</h1>
+                    <span class="eyebrow">HOSxP Intelligence Dashboard</span>
+                    <h1>รายงานการสรุปเวชระเบียนผู้ป่วยใน</h1>
                     <p>โรงพยาบาลโคกศรีสุพรรณ จังหวัดสกลนคร</p>
                 </div>
                 <div class="topbar-meta" id="reportMeta">
@@ -64,22 +64,38 @@
                 </div>
             </div>
 
-            <!-- Status bar -->
+            <section class="insight-strip" aria-label="สรุปภาพรวม">
+                <div class="insight-card">
+                    <span class="insight-label">แพทย์ที่มีข้อมูล</span>
+                    <strong id="metricDoctors">-</strong>
+                </div>
+                <div class="insight-card">
+                    <span class="insight-label">Admit รวม</span>
+                    <strong id="metricAdmit">-</strong>
+                </div>
+                <div class="insight-card">
+                    <span class="insight-label">Adj RW รวม</span>
+                    <strong id="metricAdjrw">-</strong>
+                </div>
+                <div class="insight-card">
+                    <span class="insight-label">ตึกที่พบข้อมูล</span>
+                    <strong id="metricWards">-</strong>
+                </div>
+            </section>
+
             <div class="status-bar" id="statusBar">
-                <span id="statusText">⏳ กรุณากดโหลดรายงาน</span>
+                <span class="status-dot" aria-hidden="true"></span>
+                <span id="statusText">กรุณากดโหลดรายงาน</span>
             </div>
 
-            <!-- Report container -->
             <div class="report-container" id="reportContainer">
                 <div class="empty-state">
-                    <div class="empty-icon">📊</div>
+                    <div class="empty-icon" aria-hidden="true"></div>
                     <p>กดปุ่ม <strong>โหลดรายงาน</strong> เพื่อแสดงข้อมูล</p>
                 </div>
             </div>
 
-            <!-- Ward Report Container -->
             <div class="ward-report-container" id="wardReportContainer">
-                <!-- ตารางข้อมูลรายเดือนจะมาแทรกตรงนี้ -->
             </div>
         </main>
     </div>
