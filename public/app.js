@@ -170,13 +170,16 @@ async function loadReport() {
             doctorMap[row.doctor_code] = row.doctor_name;
         });
 
-        // อัปเดต allDoctors ให้เฉพาะแพทย์ที่มีข้อมูลในช่วงนี้
-        const activeDoctors = Object.entries(doctorMap).map(([code, doctor_name]) => ({ code, doctor_name }));
+        // คงรายชื่อแพทย์เป้าหมายไว้ทั้งหมด แม้ยังไม่มีข้อมูลในช่วงที่เลือก
+        const targetDoctors = allDoctors.map(doctor => ({
+            ...doctor,
+            doctor_name: doctorMap[doctor.code] || doctor.doctor_name
+        }));
 
         // จัดลำดับตาม doctorOrder ที่มีอยู่ก่อน แล้วเพิ่มใหม่ท้าย
         const prevOrder = Array.from(document.querySelectorAll('#doctorList .doctor-item')).map(el => el.dataset.code);
         const orderedActive = [];
-        const remaining = [...activeDoctors];
+        const remaining = [...targetDoctors];
 
         prevOrder.forEach(code => {
             const idx = remaining.findIndex(d => d.code === code);
@@ -188,7 +191,7 @@ async function loadReport() {
         if (prevOrder.length === 0) {
             const excelOrder = ['ณัฐปภัสร์', 'ณัฐูปกัสร์', 'ภาษิต', 'ชานนท์', 'นฤนาท', 'พรพจน์', 'บดินทร์'];
             const sorted = [];
-            const rest = [...activeDoctors];
+            const rest = [...targetDoctors];
             excelOrder.forEach(keyword => {
                 const idx = rest.findIndex(d => d.doctor_name.includes(keyword));
                 if (idx >= 0) sorted.push(rest.splice(idx, 1)[0]);
@@ -205,7 +208,7 @@ async function loadReport() {
         document.getElementById('reportDateLabel').textContent =
             `${fyLabel}  |  ข้อมูล ณ วันที่ ${formatThaiDate(new Date())}`;
 
-        const doctorCount = activeDoctors.length;
+        const doctorCount = targetDoctors.length;
         renderReport();
         renderWardReport(wardJson.data, months);
         updateMetrics(doctorsWithDataCount(), wardJson.data);
@@ -244,10 +247,6 @@ function renderReport() {
         }))
         : allDoctors; // fallback
 
-    // เฉพาะแพทย์ที่มีข้อมูลในช่วงเวลาที่เลือก
-    const activeCodesInPeriod = new Set(Object.keys(reportData));
-    const doctorsWithData = doctorsInOrder.filter(d => activeCodesInPeriod.has(d.code));
-
     const container = document.getElementById('reportContainer');
 
     // Build table HTML
@@ -279,7 +278,7 @@ function renderReport() {
     });
     let grandAdmit = 0, grandAdjRW = 0;
 
-    doctorsWithData.forEach(doctor => {
+    doctorsInOrder.forEach(doctor => {
         const data = reportData[doctor.code] || {};
         let doctorAdmit = 0, doctorAdjRW = 0;
 

@@ -33,7 +33,7 @@ async function initDB() {
 }
 
 // รหัสแพทย์เดิม และชื่อแพทย์ใหม่ที่ให้ระบบค้นหารหัสจาก HOSxP อัตโนมัติ
-const BASE_TARGET_DOCTOR_CODES = ['1036', '2548', '2558', '2620', '2625'];
+const BASE_TARGET_DOCTOR_CODES = ['1036', '2548', '2558', '2620', '2625', '2632'];
 const TARGET_DOCTOR_NAME_KEYWORDS = ['บดินทร์', 'เสนีวงศ์'];
 
 async function resolveTargetDoctorCodes() {
