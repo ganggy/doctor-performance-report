@@ -35,7 +35,7 @@
                 </button>
             </div>
 
-            <div class="sidebar-section">
+            <div class="sidebar-section" id="doctorOrderSection">
                 <div class="section-label">ลำดับแพทย์ <span class="hint">(ลากเพื่อเรียง)</span></div>
                 <div id="doctorList" class="doctor-list">
                     <div class="loading-text">กำลังโหลด...</div>
@@ -56,7 +56,7 @@
             <div class="topbar">
                 <div class="topbar-title">
                     <span class="eyebrow">HOSxP Intelligence Dashboard</span>
-                    <h1>รายงานการสรุปเวชระเบียนผู้ป่วยใน</h1>
+                    <h1 id="pageTitle">ผลงานแพทย์ผู้ป่วยใน</h1>
                     <p>โรงพยาบาลโคกศรีสุพรรณ จังหวัดสกลนคร</p>
                 </div>
                 <div class="topbar-meta" id="reportMeta">
@@ -64,7 +64,25 @@
                 </div>
             </div>
 
-            <section class="insight-strip" aria-label="สรุปภาพรวม">
+            <nav class="report-nav" aria-label="ประเภทรายงาน">
+                <button class="report-nav-button is-active" type="button" data-view="doctor"
+                    onclick="setReportView('doctor')" aria-selected="true">
+                    <span class="report-nav-index">01</span>
+                    <span>ผลงานแพทย์</span>
+                </button>
+                <button class="report-nav-button" type="button" data-view="ward"
+                    onclick="setReportView('ward')" aria-selected="false">
+                    <span class="report-nav-index">02</span>
+                    <span>สรุปตามตึก</span>
+                </button>
+                <button class="report-nav-button" type="button" data-view="coverage"
+                    onclick="setReportView('coverage')" aria-selected="false">
+                    <span class="report-nav-index">03</span>
+                    <span>สรุปตามสิทธิการรักษา</span>
+                </button>
+            </nav>
+
+            <section class="insight-strip" id="insightStrip" aria-label="สรุปภาพรวม">
                 <div class="insight-card">
                     <span class="insight-label">แพทย์ที่มีข้อมูล</span>
                     <strong id="metricDoctors">-</strong>
@@ -88,18 +106,24 @@
                 <span id="statusText">กรุณากดโหลดรายงาน</span>
             </div>
 
-            <div class="report-container" id="reportContainer">
-                <div class="empty-state">
-                    <div class="empty-icon" aria-hidden="true"></div>
-                    <p>กดปุ่ม <strong>โหลดรายงาน</strong> เพื่อแสดงข้อมูล</p>
+            <section class="report-view is-active" data-report-view="doctor">
+                <div class="report-container" id="reportContainer">
+                    <div class="empty-state">
+                        <div class="empty-icon" aria-hidden="true"></div>
+                        <p>กดปุ่ม <strong>โหลดรายงาน</strong> เพื่อแสดงข้อมูล</p>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="coverage-report-container" id="coverageReportContainer">
-            </div>
+            <section class="report-view" data-report-view="ward">
+                <div class="ward-report-container" id="wardReportContainer">
+                </div>
+            </section>
 
-            <div class="ward-report-container" id="wardReportContainer">
-            </div>
+            <section class="report-view" data-report-view="coverage">
+                <div class="coverage-report-container" id="coverageReportContainer">
+                </div>
+            </section>
         </main>
     </div>
 

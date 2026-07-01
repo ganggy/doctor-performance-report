@@ -28,13 +28,52 @@ let months = [];       // [{ yr, mo }] ตามช่วงเลือก
 
 // Sortable instance
 let sortableInstance = null;
+let activeReportView = 'doctor';
+
+const REPORT_VIEWS = {
+    doctor: {
+        title: 'ผลงานแพทย์ผู้ป่วยใน',
+        showInsights: true,
+        showDoctorOrder: true
+    },
+    ward: {
+        title: 'สรุปผู้ป่วยในตามตึก',
+        showInsights: false,
+        showDoctorOrder: false
+    },
+    coverage: {
+        title: 'สรุปผู้ป่วยในตามสิทธิการรักษา',
+        showInsights: false,
+        showDoctorOrder: false
+    }
+};
 
 // ============ INIT ============
 window.onload = async () => {
     populateFiscalYears();
+    setReportView('doctor');
     await fetchDoctors();
     await loadReport();
 };
+
+function setReportView(view) {
+    const config = REPORT_VIEWS[view];
+    if (!config) return;
+
+    activeReportView = view;
+    document.querySelectorAll('.report-nav-button').forEach(button => {
+        const isActive = button.dataset.view === view;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', String(isActive));
+    });
+    document.querySelectorAll('.report-view').forEach(section => {
+        section.classList.toggle('is-active', section.dataset.reportView === view);
+    });
+
+    document.getElementById('pageTitle').textContent = config.title;
+    document.getElementById('insightStrip').classList.toggle('is-hidden', !config.showInsights);
+    document.getElementById('doctorOrderSection').classList.toggle('is-hidden', !config.showDoctorOrder);
+}
 
 // แปลง ปีงบประมาณ (Thai) → ช่วงเดือน CE
 function fyToDateRange(thaiYear) {
@@ -74,8 +113,7 @@ function populateFiscalYears() {
 async function fetchDoctors() {
     setStatus('กำลังโหลดรายชื่อแพทย์...');
     try {
-        const res = await fetch(`${API}/doctors`);
-        const json = await res.json();
+        const json = await fetchJson(`${API}/doctors`, 'รายชื่อแพทย์');
         if (!json.success) throw new Error(json.error);
         allDoctors = json.data;
         renderDoctorList(allDoctors);
@@ -147,15 +185,11 @@ async function loadReport() {
     setStatus('กำลังดึงข้อมูลจากฐานข้อมูล HOSxP...');
 
     try {
-        const [res, wardRes, coverageRes] = await Promise.all([
-            fetch(`${API}/report?start=${start}&end=${end}`),
-            fetch(`${API}/ward-report?start=${start}&end=${end}`),
-            fetch(`${API}/coverage-report?start=${start}&end=${end}`)
+        const [json, wardJson, coverageJson] = await Promise.all([
+            fetchJson(`${API}/report?start=${start}&end=${end}`, 'ผลงานแพทย์'),
+            fetchJson(`${API}/ward-report?start=${start}&end=${end}`, 'สรุปตามตึก'),
+            fetchJson(`${API}/coverage-report?start=${start}&end=${end}`, 'สรุปตามสิทธิการรักษา')
         ]);
-
-        const json = await res.json();
-        const wardJson = await wardRes.json();
-        const coverageJson = await coverageRes.json();
 
         if (!json.success) throw new Error(json.error);
         if (!wardJson.success) throw new Error(wardJson.error);
@@ -593,6 +627,15 @@ function renderWardReport(data, months) {
 // ============ UTILS ============
 function setStatus(msg) {
     document.getElementById('statusText').textContent = msg;
+}
+
+async function fetchJson(url, label) {
+    const response = await fetch(url);
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !contentType.includes('application/json')) {
+        throw new Error(`${label}: API ยังไม่พร้อม กรุณาอัปเดตโค้ดและ restart PM2`);
+    }
+    return response.json();
 }
 
 function doctorsWithDataCount() {
