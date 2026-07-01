@@ -821,7 +821,7 @@ button:disabled {
     text-align: left;
 }
 
-.coverage-report-table tr.coverage-total-row td {
+.coverage-report-table tbody tr.coverage-total-row td {
     color: #ffffff;
     background: var(--teal-dark);
     font-weight: 900;
