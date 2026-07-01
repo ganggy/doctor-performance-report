@@ -32,21 +32,43 @@ async function initDB() {
     }
 }
 
-// รายชื่อแพทย์เป้าหมาย 5 คน (hardcoded)
-const TARGET_DOCTOR_CODES = ['1036', '2548', '2558', '2620', '2625'];
-// ลำดับตาม Excel: ณัฐปภัสร์, ภาษิต, ชานนท์, นฤนาท, พรพจน์
-const TARGET_DOCTOR_ORDER = ['1036', '2548', '2558', '2620', '2625'];
+// รหัสแพทย์เดิม และชื่อแพทย์ใหม่ที่ให้ระบบค้นหารหัสจาก HOSxP อัตโนมัติ
+const BASE_TARGET_DOCTOR_CODES = ['1036', '2548', '2558', '2620', '2625'];
+const TARGET_DOCTOR_NAME_KEYWORDS = ['บดินทร์', 'เสนีวงศ์'];
+
+async function resolveTargetDoctorCodes() {
+    const nameConditions = TARGET_DOCTOR_NAME_KEYWORDS
+        .map(() => '(name LIKE ? OR fname LIKE ? OR lname LIKE ?)')
+        .join(' OR ');
+    const nameParams = TARGET_DOCTOR_NAME_KEYWORDS.flatMap(keyword => {
+        const pattern = `%${keyword}%`;
+        return [pattern, pattern, pattern];
+    });
+
+    const [matchedDoctors] = await pool.query(`
+        SELECT code
+        FROM doctor
+        WHERE ${nameConditions}
+        ORDER BY code
+    `, nameParams);
+
+    return [...new Set([
+        ...BASE_TARGET_DOCTOR_CODES,
+        ...matchedDoctors.map(doctor => String(doctor.code))
+    ])];
+}
 
 // ดึงรายชื่อแพทย์เป้าหมาย
 app.get('/api/doctors', async (req, res) => {
     try {
-        const placeholders = TARGET_DOCTOR_CODES.map(() => '?').join(',');
+        const targetDoctorCodes = await resolveTargetDoctorCodes();
+        const placeholders = targetDoctorCodes.map(() => '?').join(',');
         const [rows] = await pool.query(`
       SELECT code, name AS doctor_name
       FROM doctor
       WHERE code IN (${placeholders})
       ORDER BY FIELD(code, ${placeholders})
-    `, [...TARGET_DOCTOR_CODES, ...TARGET_DOCTOR_CODES]);
+    `, [...targetDoctorCodes, ...targetDoctorCodes]);
         res.json({ success: true, data: rows });
     } catch (err) {
         console.error('doctors error:', err.message);
@@ -61,9 +83,10 @@ app.get('/api/report', async (req, res) => {
         const startDate = start ? `${start}-01` : null;
         const endDate = end ? `${end}-31` : null;
 
-        const placeholders = TARGET_DOCTOR_CODES.map(() => '?').join(',');
+        const targetDoctorCodes = await resolveTargetDoctorCodes();
+        const placeholders = targetDoctorCodes.map(() => '?').join(',');
         let whereClause = `WHERE i.dchdate IS NOT NULL AND i.admdoctor IN (${placeholders})`;
-        const params = [...TARGET_DOCTOR_CODES];
+        const params = [...targetDoctorCodes];
         if (startDate && endDate) {
             whereClause += " AND i.dchdate >= ? AND i.dchdate <= ?";
             params.push(startDate, endDate);
@@ -82,7 +105,7 @@ app.get('/api/report', async (req, res) => {
       ${whereClause}
       GROUP BY d.code, d.name, YEAR(i.dchdate), MONTH(i.dchdate)
       ORDER BY FIELD(d.code, ${placeholders}), yr, mo
-    `, [...params, ...TARGET_DOCTOR_CODES]);
+    `, [...params, ...targetDoctorCodes]);
 
         res.json({ success: true, data: rows });
     } catch (err) {
@@ -143,7 +166,7 @@ app.get('/api/find-doctors', async (req, res) => {
     `);
 
         // กรองตามคีย์เวิร์ดของ 5 แพทย์ (ตรวจจาก fname หรือ name)
-        const keywords = ['ณัฐ', 'ภาษิต', 'ชานนท์', 'นฤนาท', 'พรพจน์', 'ณัฐปภัสร', 'นวัตชัย'];
+        const keywords = ['ณัฐ', 'ภาษิต', 'ชานนท์', 'นฤนาท', 'พรพจน์', 'ณัฐปภัสร', 'นวัตชัย', 'บดินทร์', 'เสนีวงศ์'];
         const matched = allPhysicians.filter(d =>
             keywords.some(k => (d.name || '').includes(k) || (d.fname || '').includes(k))
         );

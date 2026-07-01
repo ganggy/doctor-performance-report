@@ -186,7 +186,7 @@ async function loadReport() {
 
         // ถ้า sidebar ยังว่างอยู่ ให้เรียงตาม Excel order
         if (prevOrder.length === 0) {
-            const excelOrder = ['ณัฐปภัสร์', 'ณัฐูปกัสร์', 'ภาษิต', 'ชานนท์', 'นฤนาท', 'พรพจน์'];
+            const excelOrder = ['ณัฐปภัสร์', 'ณัฐูปกัสร์', 'ภาษิต', 'ชานนท์', 'นฤนาท', 'พรพจน์', 'บดินทร์'];
             const sorted = [];
             const rest = [...activeDoctors];
             excelOrder.forEach(keyword => {
