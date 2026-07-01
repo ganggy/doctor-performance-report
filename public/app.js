@@ -42,7 +42,7 @@ const REPORT_VIEWS = {
         showDoctorOrder: false
     },
     coverage: {
-        title: 'สรุปผู้ป่วยในตามสิทธิการรักษา',
+        title: 'สรุปผู้ป่วยในตามสิทธิการเงิน',
         showInsights: false,
         showDoctorOrder: false
     }
@@ -399,18 +399,6 @@ function renderReport() {
 }
 
 // ============ RENDER COVERAGE REPORT ============
-const COVERAGE_GROUPS = [
-    { key: 'uc_in', name: 'UC ใน CUP' },
-    { key: 'cr', name: 'บริการเฉพาะ (CR)' },
-    { key: 'uc_pp', name: 'UC-PP Expressed demand สร้างเสริมสุขภาพและป้องกันโรค' },
-    { key: 'uc_out', name: 'UC นอก CUP ในจังหวัด' },
-    { key: 'sss_in', name: 'ประกันสังคม ในเครือข่าย' },
-    { key: 'sss_out', name: 'ประกันสังคม นอกเครือข่าย' },
-    { key: 'ofc', name: 'เบิกจ่ายตรง กรมบัญชีกลาง' },
-    { key: 'lgo', name: 'เบิกจ่ายตรง อปท.' },
-    { key: 'car', name: 'พ.ร.บ. รถ' }
-];
-
 function renderCoverageReport(data, months) {
     const container = document.getElementById('coverageReportContainer');
     if (!data || data.length === 0) {
@@ -421,8 +409,8 @@ function renderCoverageReport(data, months) {
     const groupedByMonth = {};
     data.forEach(row => {
         const monthKey = `${row.yr}-${row.mo}`;
-        if (!groupedByMonth[monthKey]) groupedByMonth[monthKey] = {};
-        groupedByMonth[monthKey][row.coverage_group] = row;
+        if (!groupedByMonth[monthKey]) groupedByMonth[monthKey] = [];
+        groupedByMonth[monthKey].push(row);
     });
 
     let html = '';
@@ -436,8 +424,7 @@ function renderCoverageReport(data, months) {
             discount: 0, paid: 0, debt: 0, adjrw: 0
         };
 
-        const rowsHtml = COVERAGE_GROUPS.map(group => {
-            const row = monthData[group.key] || {};
+        const rowsHtml = monthData.map(row => {
             const person = Number(row.person_count || 0);
             const admit = Number(row.admit_count || 0);
             const los = Number(row.total_los || 0);
@@ -459,7 +446,7 @@ function renderCoverageReport(data, months) {
 
             return `
                 <tr>
-                    <td class="coverage-name-cell">${group.name}</td>
+                    <td class="coverage-name-cell">${row.coverage_name}</td>
                     <td>${formatInteger(person)}</td>
                     <td>${formatInteger(admit)}</td>
                     <td>${formatInteger(los)}</td>
@@ -477,7 +464,7 @@ function renderCoverageReport(data, months) {
         html += `
             <div class="coverage-report-wrapper">
                 <div class="coverage-report-title">
-                    รายงานสรุป IPD ตามสิทธิการรักษา เดือน${FULL_MONTH_NAMES[month.mo]} ${month.yr + 543}
+                    รายงานสรุป IPD ตามสิทธิการเงิน เดือน${FULL_MONTH_NAMES[month.mo]} ${month.yr + 543}
                 </div>
                 <div class="table-scroll">
                     <table class="coverage-report-table">
