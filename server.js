@@ -154,6 +154,66 @@ app.get('/api/ward-report', async (req, res) => {
     }
 });
 
+// สรุป IPD ตามกลุ่มสิทธิการรักษา (รายเดือน)
+app.get('/api/coverage-report', async (req, res) => {
+    try {
+        const { start, end } = req.query;
+        const startDate = start ? `${start}-01` : null;
+        const endDate = end ? `${end}-31` : null;
+
+        let whereClause = 'WHERE a.dchdate IS NOT NULL';
+        const params = [];
+        if (startDate && endDate) {
+            whereClause += ' AND a.dchdate >= ? AND a.dchdate <= ?';
+            params.push(startDate, endDate);
+        }
+
+        const [rows] = await pool.query(`
+            SELECT
+                YEAR(a.dchdate) AS yr,
+                MONTH(a.dchdate) AS mo,
+                CASE
+                    WHEN a.pttype IN ('71','72','73','74','75','77','80','82','88','89') THEN 'uc_in'
+                    WHEN a.pttype IN ('42','43') THEN 'cr'
+                    WHEN a.pttype = '17' THEN 'uc_pp'
+                    WHEN a.pttype IN ('40','41') THEN 'uc_out'
+                    WHEN a.pttype = '34' THEN 'sss_in'
+                    WHEN a.pttype = '35' THEN 'sss_out'
+                    WHEN a.pttype = '30' THEN 'ofc'
+                    WHEN a.pttype = '21' THEN 'lgo'
+                    WHEN a.pttype IN ('36','83') THEN 'car'
+                    ELSE NULL
+                END AS coverage_group,
+                COUNT(DISTINCT a.hn) AS person_count,
+                COUNT(a.an) AS admit_count,
+                SUM(GREATEST(DATEDIFF(a.dchdate, a.regdate), 0)) AS total_los,
+                ROUND(SUM(COALESCE(a.income, 0)), 2) AS total_income,
+                ROUND(SUM(COALESCE(a.discount_money, 0)), 2) AS total_discount,
+                ROUND(SUM(COALESCE(a.paid_money, 0)), 2) AS total_paid,
+                ROUND(SUM(
+                    COALESCE(a.income, 0)
+                    - COALESCE(a.discount_money, 0)
+                    - COALESCE(a.paid_money, 0)
+                ), 2) AS total_debt,
+                ROUND(SUM(COALESCE(i.adjrw, 0)), 4) AS total_adjrw
+            FROM an_stat a
+            LEFT JOIN ipt i ON i.an = a.an
+            ${whereClause}
+            GROUP BY YEAR(a.dchdate), MONTH(a.dchdate), coverage_group
+            HAVING coverage_group IS NOT NULL
+            ORDER BY yr, mo, FIELD(
+                coverage_group,
+                'uc_in','cr','uc_pp','uc_out','sss_in','sss_out','ofc','lgo','car'
+            )
+        `, params);
+
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('coverage-report error:', err.message);
+        res.json({ success: false, error: err.message, data: [] });
+    }
+});
+
 // ค้นหาแพทย์เป้าหมายและตรวจสอบว่าใช้ field ไหนใน ipt
 app.get('/api/find-doctors', async (req, res) => {
     try {

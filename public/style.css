@@ -431,6 +431,7 @@ button:disabled {
 }
 
 .report-container,
+.coverage-report-container,
 .ward-report-container {
     padding: 22px 36px 0;
 }
@@ -483,6 +484,7 @@ button:disabled {
 }
 
 .report-wrapper,
+.coverage-report-wrapper,
 .ward-report-wrapper {
     overflow: hidden;
     margin-bottom: 22px;
@@ -493,6 +495,7 @@ button:disabled {
 }
 
 .report-title-row,
+.coverage-report-title,
 .ward-report-title {
     padding: 15px 20px;
     color: var(--ink);
@@ -692,6 +695,53 @@ button:disabled {
     justify-content: space-between;
 }
 
+.coverage-report-table {
+    width: 100%;
+    min-width: 1080px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+
+.coverage-report-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 9px 8px;
+    color: #f5fbf9;
+    background: var(--teal);
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+    font-weight: 800;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.coverage-report-table td {
+    padding: 7px 9px;
+    color: var(--ink);
+    background: #ffffff;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.coverage-report-table tbody tr:nth-child(even) td {
+    background: #fcfaf5;
+}
+
+.coverage-report-table th:first-child,
+.coverage-report-table td.coverage-name-cell {
+    min-width: 320px;
+    text-align: left;
+}
+
+.coverage-report-table tr.coverage-total-row td {
+    color: #ffffff;
+    background: var(--teal-dark);
+    font-weight: 900;
+}
+
 .ward-report-table th {
     background: #2f594f;
 }
@@ -768,6 +818,7 @@ button:disabled {
 
     .insight-strip,
     .report-container,
+    .coverage-report-container,
     .ward-report-container {
         padding-left: 16px;
         padding-right: 16px;
@@ -806,11 +857,13 @@ button:disabled {
     }
 
     .report-container,
+    .coverage-report-container,
     .ward-report-container {
         padding: 0 !important;
     }
 
     .report-wrapper,
+    .coverage-report-wrapper,
     .ward-report-wrapper {
         box-shadow: none;
         border: 1px solid #888;
@@ -818,12 +871,15 @@ button:disabled {
     }
 
     .report-table,
+    .coverage-report-table,
     .ward-report-table {
         font-size: 10px;
     }
 
     .report-table th,
     .report-table td,
+    .coverage-report-table th,
+    .coverage-report-table td,
     .ward-report-table th,
     .ward-report-table td {
         padding: 4px 6px;

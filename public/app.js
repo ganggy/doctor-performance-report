@@ -11,6 +11,12 @@ const MONTH_NAMES = {
     9: 'ก.ย.', 10: 'ต.ค.', 11: 'พ.ย.', 12: 'ธ.ค.'
 };
 
+const FULL_MONTH_NAMES = {
+    1: 'มกราคม', 2: 'กุมภาพันธ์', 3: 'มีนาคม', 4: 'เมษายน',
+    5: 'พฤษภาคม', 6: 'มิถุนายน', 7: 'กรกฎาคม', 8: 'สิงหาคม',
+    9: 'กันยายน', 10: 'ตุลาคม', 11: 'พฤศจิกายน', 12: 'ธันวาคม'
+};
+
 // ลำดับเดือนปีงบประมาณ ต.ค. → ก.ย. (fiscal year)
 const FISCAL_MONTHS = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -141,16 +147,19 @@ async function loadReport() {
     setStatus('กำลังดึงข้อมูลจากฐานข้อมูล HOSxP...');
 
     try {
-        const [res, wardRes] = await Promise.all([
+        const [res, wardRes, coverageRes] = await Promise.all([
             fetch(`${API}/report?start=${start}&end=${end}`),
-            fetch(`${API}/ward-report?start=${start}&end=${end}`)
+            fetch(`${API}/ward-report?start=${start}&end=${end}`),
+            fetch(`${API}/coverage-report?start=${start}&end=${end}`)
         ]);
 
         const json = await res.json();
         const wardJson = await wardRes.json();
+        const coverageJson = await coverageRes.json();
 
         if (!json.success) throw new Error(json.error);
         if (!wardJson.success) throw new Error(wardJson.error);
+        if (!coverageJson.success) throw new Error(coverageJson.error);
 
         // สร้าง months array จากช่วงที่เลือก
         months = generateMonthRange(start, end);
@@ -210,6 +219,7 @@ async function loadReport() {
 
         const doctorCount = targetDoctors.length;
         renderReport();
+        renderCoverageReport(coverageJson.data, months);
         renderWardReport(wardJson.data, months);
         updateMetrics(doctorsWithDataCount(), wardJson.data);
         setStatus(`โหลดสำเร็จ - ${fyLabel} | ${doctorCount} แพทย์ | ข้อมูลตึก ${wardJson.data.length} รายการ`);
@@ -354,6 +364,127 @@ function renderReport() {
     container.innerHTML = html;
 }
 
+// ============ RENDER COVERAGE REPORT ============
+const COVERAGE_GROUPS = [
+    { key: 'uc_in', name: 'UC ใน CUP' },
+    { key: 'cr', name: 'บริการเฉพาะ (CR)' },
+    { key: 'uc_pp', name: 'UC-PP Expressed demand สร้างเสริมสุขภาพและป้องกันโรค' },
+    { key: 'uc_out', name: 'UC นอก CUP ในจังหวัด' },
+    { key: 'sss_in', name: 'ประกันสังคม ในเครือข่าย' },
+    { key: 'sss_out', name: 'ประกันสังคม นอกเครือข่าย' },
+    { key: 'ofc', name: 'เบิกจ่ายตรง กรมบัญชีกลาง' },
+    { key: 'lgo', name: 'เบิกจ่ายตรง อปท.' },
+    { key: 'car', name: 'พ.ร.บ. รถ' }
+];
+
+function renderCoverageReport(data, months) {
+    const container = document.getElementById('coverageReportContainer');
+    if (!data || data.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const groupedByMonth = {};
+    data.forEach(row => {
+        const monthKey = `${row.yr}-${row.mo}`;
+        if (!groupedByMonth[monthKey]) groupedByMonth[monthKey] = {};
+        groupedByMonth[monthKey][row.coverage_group] = row;
+    });
+
+    let html = '';
+    months.forEach(month => {
+        const monthKey = `${month.yr}-${month.mo}`;
+        const monthData = groupedByMonth[monthKey];
+        if (!monthData) return;
+
+        const totals = {
+            person: 0, admit: 0, los: 0, income: 0,
+            discount: 0, paid: 0, debt: 0, adjrw: 0
+        };
+
+        const rowsHtml = COVERAGE_GROUPS.map(group => {
+            const row = monthData[group.key] || {};
+            const person = Number(row.person_count || 0);
+            const admit = Number(row.admit_count || 0);
+            const los = Number(row.total_los || 0);
+            const income = Number(row.total_income || 0);
+            const discount = Number(row.total_discount || 0);
+            const paid = Number(row.total_paid || 0);
+            const debt = Number(row.total_debt || 0);
+            const adjrw = Number(row.total_adjrw || 0);
+            const cmi = admit > 0 ? adjrw / admit : 0;
+
+            totals.person += person;
+            totals.admit += admit;
+            totals.los += los;
+            totals.income += income;
+            totals.discount += discount;
+            totals.paid += paid;
+            totals.debt += debt;
+            totals.adjrw += adjrw;
+
+            return `
+                <tr>
+                    <td class="coverage-name-cell">${group.name}</td>
+                    <td>${formatInteger(person)}</td>
+                    <td>${formatInteger(admit)}</td>
+                    <td>${formatInteger(los)}</td>
+                    <td>${formatMoney(income)}</td>
+                    <td>${formatMoney(discount)}</td>
+                    <td>${formatMoney(paid)}</td>
+                    <td>${formatMoney(debt)}</td>
+                    <td>${formatDecimal(adjrw, 4)}</td>
+                    <td>${formatDecimal(cmi, 4)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const totalCmi = totals.admit > 0 ? totals.adjrw / totals.admit : 0;
+        html += `
+            <div class="coverage-report-wrapper">
+                <div class="coverage-report-title">
+                    รายงานสรุป IPD ตามสิทธิการรักษา เดือน${FULL_MONTH_NAMES[month.mo]} ${month.yr + 543}
+                </div>
+                <div class="table-scroll">
+                    <table class="coverage-report-table">
+                        <thead>
+                            <tr>
+                                <th>ชื่อ</th>
+                                <th>คน</th>
+                                <th>ครั้ง</th>
+                                <th>วันนอน</th>
+                                <th>ค่าใช้จ่าย</th>
+                                <th>ส่วนลด</th>
+                                <th>ชำระแล้ว</th>
+                                <th>ภาระหนี้</th>
+                                <th>AdjRW</th>
+                                <th>CMI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                            <tr class="coverage-total-row">
+                                <td class="coverage-name-cell">รวม</td>
+                                <td>${formatInteger(totals.person)}</td>
+                                <td>${formatInteger(totals.admit)}</td>
+                                <td>${formatInteger(totals.los)}</td>
+                                <td>${formatMoney(totals.income)}</td>
+                                <td>${formatMoney(totals.discount)}</td>
+                                <td>${formatMoney(totals.paid)}</td>
+                                <td>${formatMoney(totals.debt)}</td>
+                                <td>${formatDecimal(totals.adjrw, 4)}</td>
+                                <td>${formatDecimal(totalCmi, 4)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
 // ============ RENDER WARD REPORT ============
 function renderWardReport(data, months) {
     const container = document.getElementById('wardReportContainer');
@@ -492,6 +623,24 @@ function fmtAdjRW(v, decimals = 3) {
     const parts = v.toFixed(decimals).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return parts.join('.');
+}
+
+function formatInteger(value) {
+    return Number(value || 0).toLocaleString();
+}
+
+function formatMoney(value) {
+    return Number(value || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+function formatDecimal(value, decimals = 4) {
+    return Number(value || 0).toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
 }
 
 function formatThaiDate(date) {
