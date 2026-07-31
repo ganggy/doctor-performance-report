@@ -80,6 +80,11 @@
                     <span class="report-nav-index">03</span>
                     <span>สรุปตามสิทธิการเงิน</span>
                 </button>
+                <button class="report-nav-button" type="button" data-view="settings"
+                    onclick="setReportView('settings')" aria-selected="false">
+                    <span class="report-nav-index">04</span>
+                    <span>ตั้งค่าแพทย์</span>
+                </button>
             </nav>
 
             <section class="insight-strip" id="insightStrip" aria-label="สรุปภาพรวม">
@@ -122,6 +127,46 @@
 
             <section class="report-view" data-report-view="coverage" aria-label="สรุปตามสิทธิการเงิน">
                 <div class="coverage-report-container" id="coverageReportContainer">
+                </div>
+            </section>
+
+            <section class="report-view" data-report-view="settings" aria-label="ตั้งค่ารายชื่อแพทย์">
+                <div class="settings-container">
+                    <div class="settings-panel">
+                        <div class="settings-panel-header">
+                            <div>
+                                <h2>ตั้งค่ารายชื่อแพทย์ในรายงาน</h2>
+                                <p>เพิ่มแพทย์เข้าใหม่ ปิดใช้งานแพทย์ที่ออกไป หรือลบออกจากรายการเป้าหมายได้จากหน้านี้</p>
+                            </div>
+                            <button class="btn-panel" type="button" onclick="loadDoctorSettings()">รีเฟรชรายการ</button>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="settings-card">
+                                <h3>เพิ่มแพทย์</h3>
+                                <label for="doctorSearchInput">ค้นหาด้วยรหัสหรือชื่อแพทย์จาก HOSxP</label>
+                                <div class="settings-search-row">
+                                    <input id="doctorSearchInput" class="settings-input" type="text"
+                                        placeholder="เช่น 2632 หรือ บดินทร์">
+                                    <button class="btn-panel btn-panel-accent" type="button"
+                                        onclick="searchDoctorsForSettings()">ค้นหา</button>
+                                </div>
+                                <div id="doctorSearchResults" class="settings-search-results">
+                                    <div class="settings-muted">พิมพ์อย่างน้อย 2 ตัวอักษรแล้วกดค้นหา</div>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3>รายการที่ใช้ในรายงาน</h3>
+                                <p class="settings-muted">ลากเรียงลำดับได้ และกด “บันทึกลำดับ” เพื่อเก็บไว้ที่ server</p>
+                                <div id="doctorSettingsList" class="doctor-settings-list">
+                                    <div class="settings-muted">กำลังโหลด...</div>
+                                </div>
+                                <button class="btn-panel btn-panel-accent" type="button"
+                                    onclick="saveDoctorSettingsOrder()">บันทึกลำดับ</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>

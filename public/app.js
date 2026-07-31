@@ -28,6 +28,7 @@ let months = [];       // [{ yr, mo }] ตามช่วงเลือก
 
 // Sortable instance
 let sortableInstance = null;
+let settingsSortableInstance = null;
 let activeReportView = 'doctor';
 
 const REPORT_VIEWS = {
@@ -45,6 +46,11 @@ const REPORT_VIEWS = {
         title: 'สรุปผู้ป่วยในตามสิทธิการเงิน',
         showInsights: false,
         showDoctorOrder: false
+    },
+    settings: {
+        title: 'ตั้งค่ารายชื่อแพทย์',
+        showInsights: false,
+        showDoctorOrder: false
     }
 };
 
@@ -53,6 +59,7 @@ window.onload = async () => {
     populateFiscalYears();
     setReportView('doctor');
     await fetchDoctors();
+    await loadDoctorSettings();
     await loadReport();
 };
 
@@ -157,11 +164,13 @@ function updateDoctorNumbers() {
     });
 }
 
-function applyOrder() {
+async function applyOrder() {
     const items = document.querySelectorAll('#doctorList .doctor-item');
     doctorOrder = Array.from(items).map(el => el.dataset.code);
+    await saveDoctorOrder(doctorOrder);
     if (Object.keys(reportData).length > 0) renderReport();
-    setStatus('อัปเดตลำดับแพทย์แล้ว');
+    await fetchDoctors();
+    setStatus('บันทึกลำดับแพทย์แล้ว');
 }
 
 // ============ LOAD REPORT ============
@@ -623,6 +632,181 @@ async function fetchJson(url, label) {
         throw new Error(`${label}: API ยังไม่พร้อม กรุณาอัปเดตโค้ดและ restart PM2`);
     }
     return response.json();
+}
+
+async function sendJson(url, method, body, label) {
+    const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) {
+        throw new Error(json?.error || `${label}: บันทึกไม่สำเร็จ`);
+    }
+    return json;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+// ============ DOCTOR SETTINGS ============
+async function loadDoctorSettings() {
+    const list = document.getElementById('doctorSettingsList');
+    if (!list) return;
+
+    list.innerHTML = '<div class="settings-muted">กำลังโหลด...</div>';
+    try {
+        const json = await fetchJson(`${API}/settings/doctors`, 'ตั้งค่ารายชื่อแพทย์');
+        renderDoctorSettings(json.data || []);
+    } catch (err) {
+        list.innerHTML = `<div class="settings-error">${escapeHtml(err.message)}</div>`;
+    }
+}
+
+function renderDoctorSettings(doctors) {
+    const list = document.getElementById('doctorSettingsList');
+    if (!list) return;
+
+    if (!doctors.length) {
+        list.innerHTML = '<div class="settings-muted">ยังไม่มีแพทย์ในรายการ</div>';
+        return;
+    }
+
+    list.innerHTML = doctors.map((doctor, index) => `
+        <div class="doctor-setting-item ${doctor.active ? '' : 'is-disabled'}" data-code="${escapeHtml(doctor.code)}">
+            <span class="drag-handle">⠿</span>
+            <span class="doctor-num">${index + 1}</span>
+            <div class="doctor-setting-main">
+                <strong>${escapeHtml(doctor.doctor_name)}</strong>
+                <span>รหัส ${escapeHtml(doctor.code)}${doctor.missing ? ' | ไม่พบใน HOSxP' : ''}</span>
+            </div>
+            <button class="btn-mini ${doctor.active ? 'btn-mini-warning' : 'btn-mini-success'}" type="button"
+                onclick="toggleDoctorActive('${escapeHtml(doctor.code)}', ${doctor.active ? 'false' : 'true'})">
+                ${doctor.active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+            </button>
+            <button class="btn-mini btn-mini-danger" type="button"
+                onclick="removeDoctorSetting('${escapeHtml(doctor.code)}')">ลบ</button>
+        </div>
+    `).join('');
+
+    if (settingsSortableInstance) settingsSortableInstance.destroy();
+    settingsSortableInstance = new Sortable(list, {
+        animation: 200,
+        handle: '.drag-handle',
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: updateDoctorSettingsNumbers
+    });
+}
+
+function updateDoctorSettingsNumbers() {
+    document.querySelectorAll('#doctorSettingsList .doctor-setting-item').forEach((item, index) => {
+        item.querySelector('.doctor-num').textContent = index + 1;
+    });
+}
+
+async function searchDoctorsForSettings() {
+    const input = document.getElementById('doctorSearchInput');
+    const results = document.getElementById('doctorSearchResults');
+    const q = input.value.trim();
+
+    if (q.length < 2) {
+        results.innerHTML = '<div class="settings-muted">กรุณาพิมพ์อย่างน้อย 2 ตัวอักษร</div>';
+        return;
+    }
+
+    results.innerHTML = '<div class="settings-muted">กำลังค้นหา...</div>';
+    try {
+        const json = await fetchJson(`${API}/settings/doctor-search?q=${encodeURIComponent(q)}`, 'ค้นหาแพทย์');
+        const doctors = json.data || [];
+        if (!doctors.length) {
+            results.innerHTML = '<div class="settings-muted">ไม่พบแพทย์จากคำค้นนี้</div>';
+            return;
+        }
+
+        results.innerHTML = doctors.map(doctor => `
+            <div class="doctor-search-item">
+                <div>
+                    <strong>${escapeHtml(doctor.doctor_name)}</strong>
+                    <span>รหัส ${escapeHtml(doctor.code)} | HOSxP active: ${escapeHtml(doctor.hosxp_active || '-')}</span>
+                </div>
+                <button class="btn-mini btn-mini-success" type="button"
+                    onclick="addDoctorSetting('${escapeHtml(doctor.code)}')" ${doctor.configured ? 'disabled' : ''}>
+                    ${doctor.configured ? 'มีแล้ว' : 'เพิ่ม'}
+                </button>
+            </div>
+        `).join('');
+    } catch (err) {
+        results.innerHTML = `<div class="settings-error">${escapeHtml(err.message)}</div>`;
+    }
+}
+
+async function addDoctorSetting(code) {
+    try {
+        await sendJson(`${API}/settings/doctors`, 'POST', { code, active: true }, 'เพิ่มแพทย์');
+        await reloadDoctorsAfterSettingsChange('เพิ่มแพทย์เรียบร้อย');
+        await searchDoctorsForSettings();
+    } catch (err) {
+        setStatus(`เพิ่มแพทย์ไม่ได้: ${err.message}`);
+    }
+}
+
+async function toggleDoctorActive(code, active) {
+    try {
+        await sendJson(`${API}/settings/doctors/${encodeURIComponent(code)}`, 'PUT', { active }, 'แก้ไขแพทย์');
+        await reloadDoctorsAfterSettingsChange(active ? 'เปิดใช้งานแพทย์แล้ว' : 'ปิดใช้งานแพทย์แล้ว');
+    } catch (err) {
+        setStatus(`แก้ไขแพทย์ไม่ได้: ${err.message}`);
+    }
+}
+
+async function removeDoctorSetting(code) {
+    const doctor = document.querySelector(`#doctorSettingsList .doctor-setting-item[data-code="${CSS.escape(code)}"] strong`)?.textContent || code;
+    if (!confirm(`ยืนยันลบ ${doctor} ออกจากรายการรายงาน?`)) return;
+
+    try {
+        await fetch(`${API}/settings/doctors/${encodeURIComponent(code)}`, { method: 'DELETE' })
+            .then(async response => {
+                const json = await response.json().catch(() => null);
+                if (!response.ok || !json?.success) throw new Error(json?.error || 'ลบไม่สำเร็จ');
+            });
+        await reloadDoctorsAfterSettingsChange('ลบแพทย์ออกจากรายการแล้ว');
+    } catch (err) {
+        setStatus(`ลบแพทย์ไม่ได้: ${err.message}`);
+    }
+}
+
+async function saveDoctorSettingsOrder() {
+    const order = Array.from(document.querySelectorAll('#doctorSettingsList .doctor-setting-item'))
+        .map(item => item.dataset.code);
+    try {
+        await saveDoctorOrder(order);
+        await reloadDoctorsAfterSettingsChange('บันทึกลำดับแพทย์แล้ว');
+    } catch (err) {
+        setStatus(`บันทึกลำดับไม่ได้: ${err.message}`);
+    }
+}
+
+async function saveDoctorOrder(order) {
+    if (!order.length) return;
+    await sendJson(`${API}/settings/doctors-order`, 'PUT', { order }, 'บันทึกลำดับแพทย์');
+}
+
+async function reloadDoctorsAfterSettingsChange(message) {
+    await loadDoctorSettings();
+    await fetchDoctors();
+    if (Object.keys(reportData).length > 0) {
+        await loadReport();
+    }
+    setStatus(message);
 }
 
 function doctorsWithDataCount() {

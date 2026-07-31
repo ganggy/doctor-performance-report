@@ -2,11 +2,14 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs/promises');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+const settingsPath = path.join(__dirname, 'data', 'doctor-settings.json');
 
 // HOSxP Database config
 const dbConfig = {
@@ -32,43 +35,97 @@ async function initDB() {
     }
 }
 
-// รหัสแพทย์เดิม และชื่อแพทย์ใหม่ที่ให้ระบบค้นหารหัสจาก HOSxP อัตโนมัติ
-const BASE_TARGET_DOCTOR_CODES = ['1036', '2548', '2558', '2620', '2625', '2632'];
-const TARGET_DOCTOR_NAME_KEYWORDS = ['บดินทร์', 'เสนีวงศ์'];
+const DEFAULT_DOCTOR_SETTINGS = {
+    doctors: [
+        { code: '1036', active: true },
+        { code: '2548', active: true },
+        { code: '2558', active: true },
+        { code: '2620', active: true },
+        { code: '2625', active: true },
+        { code: '2632', active: true }
+    ]
+};
+
+function normalizeDoctorSettings(settings) {
+    const seen = new Set();
+    const doctors = Array.isArray(settings?.doctors) ? settings.doctors : [];
+
+    return {
+        doctors: doctors
+            .map((doctor, index) => ({
+                code: String(doctor.code || '').trim(),
+                active: doctor.active !== false,
+                sort_order: Number.isFinite(Number(doctor.sort_order)) ? Number(doctor.sort_order) : index + 1
+            }))
+            .filter(doctor => doctor.code && !seen.has(doctor.code) && seen.add(doctor.code))
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map(({ code, active }) => ({ code, active }))
+    };
+}
+
+async function readDoctorSettings() {
+    try {
+        const raw = await fs.readFile(settingsPath, 'utf8');
+        return normalizeDoctorSettings(JSON.parse(raw));
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            console.error('doctor settings read error:', err.message);
+        }
+        await writeDoctorSettings(DEFAULT_DOCTOR_SETTINGS);
+        return normalizeDoctorSettings(DEFAULT_DOCTOR_SETTINGS);
+    }
+}
+
+async function writeDoctorSettings(settings) {
+    const normalized = normalizeDoctorSettings(settings);
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(settingsPath, JSON.stringify(normalized, null, 2), 'utf8');
+    return normalized;
+}
+
+async function getDoctorRowsByCodes(codes) {
+    if (codes.length === 0) return [];
+
+    const placeholders = codes.map(() => '?').join(',');
+    const [rows] = await pool.query(`
+        SELECT code, name AS doctor_name, active AS hosxp_active, council_code
+        FROM doctor
+        WHERE code IN (${placeholders})
+        ORDER BY FIELD(code, ${placeholders})
+    `, [...codes, ...codes]);
+
+    return rows.map(row => ({ ...row, code: String(row.code) }));
+}
+
+async function getConfiguredDoctors({ activeOnly = false } = {}) {
+    const settings = await readDoctorSettings();
+    const configured = activeOnly
+        ? settings.doctors.filter(doctor => doctor.active)
+        : settings.doctors;
+    const codes = configured.map(doctor => doctor.code);
+    const rows = await getDoctorRowsByCodes(codes);
+    const rowMap = new Map(rows.map(row => [String(row.code), row]));
+
+    return configured.map((doctor, index) => ({
+        code: doctor.code,
+        doctor_name: rowMap.get(doctor.code)?.doctor_name || `ไม่พบรหัสแพทย์ ${doctor.code}`,
+        hosxp_active: rowMap.get(doctor.code)?.hosxp_active ?? null,
+        council_code: rowMap.get(doctor.code)?.council_code ?? null,
+        active: doctor.active,
+        sort_order: index + 1,
+        missing: !rowMap.has(doctor.code)
+    }));
+}
 
 async function resolveTargetDoctorCodes() {
-    const nameConditions = TARGET_DOCTOR_NAME_KEYWORDS
-        .map(() => '(name LIKE ? OR fname LIKE ? OR lname LIKE ?)')
-        .join(' OR ');
-    const nameParams = TARGET_DOCTOR_NAME_KEYWORDS.flatMap(keyword => {
-        const pattern = `%${keyword}%`;
-        return [pattern, pattern, pattern];
-    });
-
-    const [matchedDoctors] = await pool.query(`
-        SELECT code
-        FROM doctor
-        WHERE ${nameConditions}
-        ORDER BY code
-    `, nameParams);
-
-    return [...new Set([
-        ...BASE_TARGET_DOCTOR_CODES,
-        ...matchedDoctors.map(doctor => String(doctor.code))
-    ])];
+    const doctors = await getConfiguredDoctors({ activeOnly: true });
+    return doctors.map(doctor => doctor.code);
 }
 
 // ดึงรายชื่อแพทย์เป้าหมาย
 app.get('/api/doctors', async (req, res) => {
     try {
-        const targetDoctorCodes = await resolveTargetDoctorCodes();
-        const placeholders = targetDoctorCodes.map(() => '?').join(',');
-        const [rows] = await pool.query(`
-      SELECT code, name AS doctor_name
-      FROM doctor
-      WHERE code IN (${placeholders})
-      ORDER BY FIELD(code, ${placeholders})
-    `, [...targetDoctorCodes, ...targetDoctorCodes]);
+        const rows = await getConfiguredDoctors({ activeOnly: true });
         res.json({ success: true, data: rows });
     } catch (err) {
         console.error('doctors error:', err.message);
@@ -76,7 +133,136 @@ app.get('/api/doctors', async (req, res) => {
     }
 });
 
-// ดึงข้อมูลรายงาน (เฉพาะ 5 แพทย์เป้าหมาย)
+app.get('/api/settings/doctors', async (req, res) => {
+    try {
+        const rows = await getConfiguredDoctors();
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('settings doctors error:', err.message);
+        res.json({ success: false, error: err.message, data: [] });
+    }
+});
+
+app.get('/api/settings/doctor-search', async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const like = `%${q}%`;
+        const [rows] = await pool.query(`
+            SELECT code, name AS doctor_name, fname, lname, active AS hosxp_active, council_code
+            FROM doctor
+            WHERE code = ?
+               OR name LIKE ?
+               OR fname LIKE ?
+               OR lname LIKE ?
+            ORDER BY
+                CASE WHEN code = ? THEN 0 ELSE 1 END,
+                active DESC,
+                name
+            LIMIT 30
+        `, [q, like, like, like, q]);
+
+        const configured = await getConfiguredDoctors();
+        const configuredCodes = new Set(configured.map(doctor => doctor.code));
+        res.json({
+            success: true,
+            data: rows.map(row => ({
+                ...row,
+                code: String(row.code),
+                configured: configuredCodes.has(String(row.code))
+            }))
+        });
+    } catch (err) {
+        console.error('doctor search error:', err.message);
+        res.json({ success: false, error: err.message, data: [] });
+    }
+});
+
+app.post('/api/settings/doctors', async (req, res) => {
+    try {
+        const code = String(req.body.code || '').trim();
+        if (!code) {
+            return res.status(400).json({ success: false, error: 'กรุณาระบุรหัสแพทย์' });
+        }
+
+        const settings = await readDoctorSettings();
+        const exists = settings.doctors.some(doctor => doctor.code === code);
+        if (exists) {
+            return res.status(409).json({ success: false, error: 'มีแพทย์รหัสนี้ในรายการแล้ว' });
+        }
+
+        settings.doctors.push({ code, active: req.body.active !== false });
+        await writeDoctorSettings(settings);
+        res.json({ success: true, data: await getConfiguredDoctors() });
+    } catch (err) {
+        console.error('add settings doctor error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.put('/api/settings/doctors/:code', async (req, res) => {
+    try {
+        const code = String(req.params.code || '').trim();
+        const settings = await readDoctorSettings();
+        const doctor = settings.doctors.find(item => item.code === code);
+        if (!doctor) {
+            return res.status(404).json({ success: false, error: 'ไม่พบแพทย์ในรายการตั้งค่า' });
+        }
+
+        if (typeof req.body.active === 'boolean') {
+            doctor.active = req.body.active;
+        }
+
+        await writeDoctorSettings(settings);
+        res.json({ success: true, data: await getConfiguredDoctors() });
+    } catch (err) {
+        console.error('update settings doctor error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.put('/api/settings/doctors-order', async (req, res) => {
+    try {
+        const order = Array.isArray(req.body.order) ? req.body.order.map(code => String(code).trim()) : [];
+        const settings = await readDoctorSettings();
+        const doctorMap = new Map(settings.doctors.map(doctor => [doctor.code, doctor]));
+        const ordered = [];
+
+        order.forEach(code => {
+            if (doctorMap.has(code)) ordered.push(doctorMap.get(code));
+            doctorMap.delete(code);
+        });
+
+        ordered.push(...doctorMap.values());
+        await writeDoctorSettings({ doctors: ordered });
+        res.json({ success: true, data: await getConfiguredDoctors() });
+    } catch (err) {
+        console.error('doctor order error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.delete('/api/settings/doctors/:code', async (req, res) => {
+    try {
+        const code = String(req.params.code || '').trim();
+        const settings = await readDoctorSettings();
+        const nextDoctors = settings.doctors.filter(doctor => doctor.code !== code);
+        if (nextDoctors.length === settings.doctors.length) {
+            return res.status(404).json({ success: false, error: 'ไม่พบแพทย์ในรายการตั้งค่า' });
+        }
+
+        await writeDoctorSettings({ doctors: nextDoctors });
+        res.json({ success: true, data: await getConfiguredDoctors() });
+    } catch (err) {
+        console.error('delete settings doctor error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ดึงข้อมูลรายงานตามรายชื่อแพทย์ที่เปิดใช้งานในหน้า Settings
 app.get('/api/report', async (req, res) => {
     try {
         const { start, end } = req.query;
@@ -84,6 +270,9 @@ app.get('/api/report', async (req, res) => {
         const endDate = end ? `${end}-31` : null;
 
         const targetDoctorCodes = await resolveTargetDoctorCodes();
+        if (targetDoctorCodes.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
         const placeholders = targetDoctorCodes.map(() => '?').join(',');
         let whereClause = `WHERE i.dchdate IS NOT NULL AND i.admdoctor IN (${placeholders})`;
         const params = [...targetDoctorCodes];

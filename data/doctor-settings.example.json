@@ -1,0 +1,10 @@
+{
+  "doctors": [
+    { "code": "1036", "active": true },
+    { "code": "2548", "active": true },
+    { "code": "2558", "active": true },
+    { "code": "2620", "active": true },
+    { "code": "2625", "active": true },
+    { "code": "2632", "active": true }
+  ]
+}
