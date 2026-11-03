@@ -18,7 +18,7 @@ const dbConfig = {
     password: 'opd',
     database: 'hos',
     port: 3306,
-    charset: 'utf8',
+    charset: 'tis620',
     connectTimeout: 10000
 };
 
@@ -42,7 +42,8 @@ const DEFAULT_DOCTOR_SETTINGS = {
         { code: '2558', active: true },
         { code: '2620', active: true },
         { code: '2625', active: true },
-        { code: '2632', active: true }
+        { code: '2632', active: true },
+        { code: '2638', active: true }
     ]
 };
 

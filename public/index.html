@@ -147,7 +147,8 @@
                                 <label for="doctorSearchInput">ค้นหาด้วยรหัสหรือชื่อแพทย์จาก HOSxP</label>
                                 <div class="settings-search-row">
                                     <input id="doctorSearchInput" class="settings-input" type="text"
-                                        placeholder="เช่น 2632 หรือ บดินทร์">
+                                        placeholder="เช่น 2632 หรือ บดินทร์"
+                                        onkeydown="if(event.key === 'Enter') searchDoctorsForSettings()">
                                     <button class="btn-panel btn-panel-accent" type="button"
                                         onclick="searchDoctorsForSettings()">ค้นหา</button>
                                 </div>
