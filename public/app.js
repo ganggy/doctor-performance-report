@@ -306,8 +306,14 @@ function renderReport() {
     let html = `
     <div class="report-wrapper">
       <div class="report-title-row">
-        รายงานการสรุปเวชระเบียนผู้ป่วย ใน โรงพยาบาลโคกศรีสุพรรณ จังหวัดสกลนคร
-        (ข้อมูล ณ วันที่ ${formatThaiDate(new Date())})
+        <span class="report-title-text">
+          รายงานการสรุปเวชระเบียนผู้ป่วย ใน โรงพยาบาลโคกศรีสุพรรณ จังหวัดสกลนคร
+          (ข้อมูล ณ วันที่ ${formatThaiDate(new Date())})
+        </span>
+        <button class="btn-panel btn-export-inline" type="button" data-export-ignore="true"
+          onclick="exportElementAsImage(this.closest('.report-wrapper'), 'doctor-performance-report', this)">
+          🖼 ส่งออกภาพส่ง LINE
+        </button>
       </div>
       <div class="table-scroll">
       <table class="report-table">
@@ -422,7 +428,14 @@ function renderCoverageReport(data, months) {
         groupedByMonth[monthKey].push(row);
     });
 
-    let html = '';
+    let html = `
+        <div class="view-export-toolbar" data-export-ignore="true">
+            <button class="btn-panel btn-export-inline" type="button"
+                onclick="exportCurrentViewAsImage(this)">
+                🖼 ส่งออกภาพทั้งหมด (ทุกเดือน)
+            </button>
+        </div>
+    `;
     months.forEach(month => {
         const monthKey = `${month.yr}-${month.mo}`;
         const monthData = groupedByMonth[monthKey];
@@ -473,7 +486,11 @@ function renderCoverageReport(data, months) {
         html += `
             <div class="coverage-report-wrapper">
                 <div class="coverage-report-title">
-                    รายงานสรุป IPD ตามสิทธิการเงิน เดือน${FULL_MONTH_NAMES[month.mo]} ${month.yr + 543}
+                    <span>รายงานสรุป IPD ตามสิทธิการเงิน เดือน${FULL_MONTH_NAMES[month.mo]} ${month.yr + 543}</span>
+                    <button class="btn-panel btn-export-inline" type="button" data-export-ignore="true"
+                        onclick="exportElementAsImage(this.closest('.coverage-report-wrapper'), 'coverage-report-${month.yr + 543}-${String(month.mo).padStart(2, '0')}', this)">
+                        🖼 ส่งออกภาพส่ง LINE
+                    </button>
                 </div>
                 <div class="table-scroll">
                     <table class="coverage-report-table">
@@ -538,7 +555,14 @@ function renderWardReport(data, months) {
         }
     });
 
-    let html = '';
+    let html = `
+        <div class="view-export-toolbar" data-export-ignore="true">
+            <button class="btn-panel btn-export-inline" type="button"
+                onclick="exportCurrentViewAsImage(this)">
+                🖼 ส่งออกภาพทั้งหมด (ทุกเดือน)
+            </button>
+        </div>
+    `;
 
     months.forEach(m => {
         const key = `${m.yr}-${m.mo}`;
@@ -551,7 +575,11 @@ function renderWardReport(data, months) {
         html += `
         <div class="ward-report-wrapper">
             <div class="ward-report-title">
-                รายงานสรุป IPD ตามตึก เดือน${monthName} ${yearThai}
+                <span>รายงานสรุป IPD ตามตึก เดือน${monthName} ${yearThai}</span>
+                <button class="btn-panel btn-export-inline" type="button" data-export-ignore="true"
+                    onclick="exportElementAsImage(this.closest('.ward-report-wrapper'), 'ward-report-${yearThai}-${String(m.mo).padStart(2, '0')}', this)">
+                    🖼 ส่งออกภาพส่ง LINE
+                </button>
             </div>
             <div class="table-scroll">
                 <table class="ward-report-table">
@@ -871,4 +899,124 @@ function printReport() {
         return;
     }
     window.print();
+}
+
+
+// ============ EXPORT AS IMAGE (FOR LINE) ============
+function exportCurrentViewAsImage(triggerButton) {
+    let target = null;
+    let filename = 'report';
+
+    if (activeReportView === 'doctor') {
+        target = document.querySelector('#reportContainer .report-wrapper');
+        filename = 'doctor-performance-report';
+    } else if (activeReportView === 'ward') {
+        target = document.getElementById('wardReportContainer');
+        filename = 'ward-report-all';
+        if (!target || !target.querySelector('.ward-report-wrapper')) target = null;
+    } else if (activeReportView === 'coverage') {
+        target = document.getElementById('coverageReportContainer');
+        filename = 'coverage-report-all';
+        if (!target || !target.querySelector('.coverage-report-wrapper')) target = null;
+    } else if (activeReportView === 'settings') {
+        target = document.querySelector('.settings-panel');
+        filename = 'doctor-settings';
+    }
+
+    if (!target) {
+        alert('กรุณากด "โหลดรายงาน" ก่อนส่งออกภาพ');
+        return;
+    }
+
+    exportElementAsImage(target, filename, triggerButton);
+}
+
+async function exportElementAsImage(element, filenameBase, triggerButton) {
+    if (!element) return;
+    if (typeof html2canvas === 'undefined') {
+        alert('ไม่พบไลบรารีสำหรับสร้างภาพ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่');
+        return;
+    }
+
+    const originalHtml = triggerButton ? triggerButton.innerHTML : '';
+    if (triggerButton) {
+        triggerButton.disabled = true;
+        triggerButton.innerHTML = 'กำลังสร้างภาพ...';
+    }
+    setStatus('กำลังสร้างภาพสำหรับส่ง LINE...');
+
+    try {
+        const markerAttr = 'data-export-capture-target';
+        element.setAttribute(markerAttr, 'true');
+
+        const canvas = await html2canvas(element, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+            onclone: (clonedDoc) => {
+                const clonedTarget = clonedDoc.querySelector(`[${markerAttr}="true"]`);
+                if (!clonedTarget) return;
+
+                // Hide export buttons and toolbars inside the captured image
+                clonedTarget.querySelectorAll('[data-export-ignore="true"]').forEach(el => {
+                    el.style.display = 'none';
+                });
+
+                // Expand scrollable tables so no columns are clipped
+                clonedTarget.querySelectorAll('.table-scroll').forEach(scrollEl => {
+                    scrollEl.style.overflow = 'visible';
+                    scrollEl.style.width = 'max-content';
+                });
+
+                const requiredWidth = clonedTarget.scrollWidth;
+                if (requiredWidth > clonedTarget.clientWidth) {
+                    clonedTarget.style.width = `${requiredWidth}px`;
+                    clonedTarget.style.maxWidth = 'none';
+                }
+            }
+        });
+
+        element.removeAttribute(markerAttr);
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('ไม่สามารถแปลงเป็นไฟล์ภาพ PNG ได้');
+
+        const now = new Date();
+        const stamp = `${now.getFullYear() + 543}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filenameBase}-${stamp}.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        let copiedToClipboard = false;
+        if (navigator.clipboard && typeof navigator.clipboard.write === 'function' && typeof ClipboardItem !== 'undefined') {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                copiedToClipboard = true;
+            } catch (_) {
+                // Clipboard write may require HTTPS or user focus; PNG download already succeeded
+            }
+        }
+
+        setStatus(
+            copiedToClipboard
+                ? 'ส่งออกภาพเรียบร้อย (ดาวน์โหลด PNG + คัดลอกลงคลิปบอร์ดแล้ว กด Ctrl+V ส่งใน LINE ได้ทันที)'
+                : 'ส่งออกภาพเรียบร้อย (ดาวน์โหลดไฟล์ PNG แล้ว สามารถลากไฟล์ส่งเข้า LINE ได้ทันที)'
+        );
+    } catch (err) {
+        element.removeAttribute(markerAttr);
+        console.error('export image error:', err);
+        setStatus(`ส่งออกภาพไม่สำเร็จ: ${err.message}`);
+        alert(`ส่งออกภาพไม่สำเร็จ: ${err.message}`);
+    } finally {
+        if (triggerButton) {
+            triggerButton.disabled = false;
+            triggerButton.innerHTML = originalHtml;
+        }
+    }
 }

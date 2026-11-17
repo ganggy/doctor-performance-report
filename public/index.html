@@ -49,6 +49,9 @@
                 <button class="btn-print" onclick="printReport()">
                     <span class="btn-icon" aria-hidden="true">⌘</span> พิมพ์รายงาน
                 </button>
+                <button class="btn-export-line" id="sidebarExportBtn" type="button" onclick="exportCurrentViewAsImage(this)">
+                    <span class="btn-icon" aria-hidden="true">🖼</span> ส่งออกภาพส่ง LINE
+                </button>
             </div>
         </aside>
 
@@ -138,7 +141,11 @@
                                 <h2>ตั้งค่ารายชื่อแพทย์ในรายงาน</h2>
                                 <p>เพิ่มแพทย์เข้าใหม่ ปิดใช้งานแพทย์ที่ออกไป หรือลบออกจากรายการเป้าหมายได้จากหน้านี้</p>
                             </div>
-                            <button class="btn-panel" type="button" onclick="loadDoctorSettings()">รีเฟรชรายการ</button>
+                            <div class="settings-header-actions" data-export-ignore="true">
+                                <button class="btn-panel btn-export-inline" type="button"
+                                    onclick="exportCurrentViewAsImage(this)">🖼 ส่งออกภาพส่ง LINE</button>
+                                <button class="btn-panel" type="button" onclick="loadDoctorSettings()">รีเฟรชรายการ</button>
+                            </div>
                         </div>
 
                         <div class="settings-grid">
@@ -175,6 +182,8 @@
 
     <!-- Sortable.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <!-- html2canvas CDN for image export -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="app.js"></script>
 </body>
 

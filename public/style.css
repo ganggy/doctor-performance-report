@@ -207,6 +207,7 @@ button:disabled {
 .btn-primary,
 .btn-secondary,
 .btn-print,
+.btn-export-line,
 .btn-panel,
 .btn-mini {
     display: flex;
@@ -241,9 +242,16 @@ button:disabled {
     border-color: rgba(255, 212, 150, 0.20);
 }
 
+.btn-export-line {
+    color: #dcfce7;
+    background: rgba(6, 199, 85, 0.22);
+    border-color: rgba(134, 239, 172, 0.30);
+}
+
 .btn-primary:hover,
 .btn-secondary:hover,
 .btn-print:hover,
+.btn-export-line:hover,
 .btn-panel:hover,
 .btn-mini:hover {
     transform: translateY(-1px);
@@ -636,6 +644,11 @@ button:disabled {
 .report-title-row,
 .coverage-report-title,
 .ward-report-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
     padding: 15px 20px;
     color: var(--ink);
     background: linear-gradient(90deg, #fffaf0, #f3eee3);
@@ -644,8 +657,43 @@ button:disabled {
     font-weight: 800;
 }
 
-.report-title-row {
+.report-title-text {
+    flex: 1 1 auto;
     text-align: center;
+}
+
+.btn-export-inline {
+    color: #066d34;
+    background: #e9fbf0;
+    border-color: rgba(6, 199, 85, 0.35);
+    font-size: 13px;
+    min-height: 34px;
+    padding: 0 12px;
+    white-space: nowrap;
+}
+
+.btn-export-inline:hover {
+    background: #d3f7e1;
+}
+
+.btn-export-inline:disabled,
+.btn-export-line:disabled {
+    opacity: 0.65;
+    cursor: wait;
+    transform: none;
+}
+
+.view-export-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+}
+
+.settings-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .table-scroll {
@@ -1159,7 +1207,8 @@ button:disabled {
     .topbar,
     .report-nav,
     .insight-strip,
-    .status-bar {
+    .status-bar,
+    [data-export-ignore="true"] {
         display: none !important;
     }
 
