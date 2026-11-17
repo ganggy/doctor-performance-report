@@ -949,11 +949,17 @@ async function exportElementAsImage(element, filenameBase, triggerButton) {
         const markerAttr = 'data-export-capture-target';
         element.setAttribute(markerAttr, 'true');
 
+        const scrollEls = Array.from(element.querySelectorAll('.table-scroll'));
+        const maxScrollWidth = scrollEls.reduce((max, el) => Math.max(max, el.scrollWidth), 0);
+        const captureWidth = Math.max(element.scrollWidth, maxScrollWidth);
+
         const canvas = await html2canvas(element, {
             scale: 2,
             backgroundColor: '#ffffff',
             useCORS: true,
             logging: false,
+            width: captureWidth,
+            windowWidth: Math.max(document.documentElement.clientWidth, captureWidth),
             onclone: (clonedDoc) => {
                 const clonedTarget = clonedDoc.querySelector(`[${markerAttr}="true"]`);
                 if (!clonedTarget) return;
@@ -963,15 +969,20 @@ async function exportElementAsImage(element, filenameBase, triggerButton) {
                     el.style.display = 'none';
                 });
 
-                // Expand scrollable tables so no columns are clipped
+                // Keep tables full width when they fit, or expand if wider than container
                 clonedTarget.querySelectorAll('.table-scroll').forEach(scrollEl => {
                     scrollEl.style.overflow = 'visible';
-                    scrollEl.style.width = 'max-content';
+                    const tableEl = scrollEl.querySelector('table');
+                    if (scrollEl.scrollWidth > scrollEl.clientWidth) {
+                        scrollEl.style.width = 'max-content';
+                    } else {
+                        scrollEl.style.width = '100%';
+                        if (tableEl) tableEl.style.width = '100%';
+                    }
                 });
 
-                const requiredWidth = clonedTarget.scrollWidth;
-                if (requiredWidth > clonedTarget.clientWidth) {
-                    clonedTarget.style.width = `${requiredWidth}px`;
+                if (captureWidth > clonedTarget.clientWidth) {
+                    clonedTarget.style.width = `${captureWidth}px`;
                     clonedTarget.style.maxWidth = 'none';
                 }
             }
